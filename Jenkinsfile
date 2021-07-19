@@ -8,7 +8,6 @@ pipeline {
             alwaysPull true
             image 'lsstts/develop-env:develop'
             args "-u root --entrypoint=''"
-            label '!Arm64_Node_2CPU'
         }
         
     }

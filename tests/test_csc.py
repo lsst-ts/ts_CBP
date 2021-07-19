@@ -107,6 +107,22 @@ class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
                 )
                 await self.assert_next_sample(
                     topic=self.remote.evt_inPosition,
+                    azimuth=True,
+                    elevation=True,
+                    mask=True,
+                    mask_rotation=True,
+                    focus=True,
+                )
+                await self.assert_next_sample(
+                    topic=self.remote.evt_inPosition,
+                    azimuth=True,
+                    elevation=False,
+                    mask=True,
+                    mask_rotation=True,
+                    focus=True,
+                )
+                await self.assert_next_sample(
+                    topic=self.remote.evt_inPosition,
                     azimuth=False,
                     elevation=False,
                     mask=True,
