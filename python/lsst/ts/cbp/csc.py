@@ -156,7 +156,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         if self.disabled_or_enabled:
             if self.simulation_mode and self.simulator is None:
                 self.simulator = mock_server.MockServer()
-                await self.simulator.start()
+                await self.simulator.start_task
             if not self.component.connected:
                 await self.component.connect()
             if self.telemetry_task.done():
@@ -165,7 +165,7 @@ class CBPCSC(salobj.ConfigurableCsc):
                 await self.component.set_unpark()
         else:
             if self.simulator is not None:
-                await self.simulator.stop()
+                await self.simulator.close()
                 self.simulator = None
             await self.component.disconnect()
             self.telemetry_task.cancel()
@@ -189,7 +189,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.telemetry_task.cancel()
         await self.component.disconnect()
         if self.simulator is not None:
-            await self.simulator.stop()
+            await self.simulator.close()
             self.simulator = None
 
     async def in_position(self):

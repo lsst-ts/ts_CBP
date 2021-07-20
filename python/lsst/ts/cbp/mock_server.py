@@ -6,6 +6,7 @@ import logging
 import enum
 
 from lsst.ts import simactuators
+from lsst.ts import tcpip
 
 
 class Encoders:
@@ -47,7 +48,7 @@ class StatusError(enum.Flag):
     TORQUE_LIMIT = enum.auto()
 
 
-class MockServer:
+class MockServer(tcpip.OneClientServer):
     """Mocks the CBP server.
 
     Parameters
@@ -74,8 +75,8 @@ class MockServer:
     """
 
     def __init__(self, log=None):
-        self.host = "127.0.0.1"
-        self.port = 9999
+        self.log = logging.getLogger(__name__)
+        self.read_loop_task = asyncio.Future()
         self.timeout = 5
         self.long_timeout = 30
         self.azimuth = 0
@@ -115,23 +116,20 @@ class MockServer:
             (re.compile(r"ADstat=\?"), self.do_adstat),
             (re.compile(r"AEstat=\?"), self.do_aestat),
         )
-        self.log = logging.getLogger(__name__)
-
-    async def start(self):
-        """Start the server."""
-        self.log.info("Starting Server")
-        self.server = await asyncio.start_server(
-            client_connected_cb=self.cmd_loop, host=self.host, port=self.port
+        super().__init__(
+            name="CBP Mock Server",
+            host=tcpip.LOCAL_HOST,
+            port=9999,
+            connect_callback=self.connect_callback,
+            log=self.log,
         )
 
-    async def stop(self):
-        """Stop the server."""
-        self.log.info("Closing Server")
-        self.server.close()
-        await asyncio.wait_for(self.server.wait_closed(), timeout=self.timeout)
-        self.log.info("Server closed")
+    def connect_callback(self, server):
+        self.read_loop_task.cancel()
+        if server.connected:
+            self.read_loop_task = asyncio.create_task(self.cmd_loop())
 
-    async def cmd_loop(self, reader, writer):
+    async def cmd_loop(self):
         """Run the command loop.
 
         Parameters
@@ -140,12 +138,12 @@ class MockServer:
         writer : `asyncio.StreamWriter`
 
         """
-        while True:
+        while self.connected:
             self.log.debug("In cmd loop")
-            line = await reader.readuntil(b"\r")
+            line = await self.reader.readuntil(b"\r")
             self.log.debug(f"Received: {line}")
             if not line:
-                writer.close()
+                self.writer.close()
                 return
             line = line.decode().strip("\r")
             self.log.debug(f"Decoded {line}")
@@ -175,9 +173,9 @@ class MockServer:
                         # TODO DM-27693: reply with an error signal so the
                         # client knows there is a problem
                     else:
-                        writer.write(msg.encode("ascii") + b"\r")
+                        self.writer.write(msg.encode("ascii") + b"\r")
                         self.log.debug(f"Wrote {msg}")
-                        await writer.drain()
+                        await self.writer.drain()
                     break
 
     def set_constrained_position(self, value, actuator):

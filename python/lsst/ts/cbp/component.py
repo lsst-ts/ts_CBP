@@ -4,6 +4,8 @@ import logging
 import asyncio
 import types
 
+from lsst.ts import tcpip
+
 
 class CBPComponent:
     """This class is for implementing the CBP component.
@@ -57,6 +59,8 @@ class CBPComponent:
         # 9999 divided by 186413 is approximately 0.053
         # So the value is set to 0.1
         self.error_tolerance = 0.1
+        self.terminator = "\r"
+        self.terminator_encoded = self.terminator.encode("ascii")
         self.generate_mask_info()
         self.log.info("CBP component initialized")
 
@@ -154,12 +158,12 @@ class CBPComponent:
             The reply to the command sent.
         """
         async with self.lock:
-            msg = msg + "\r"
+            msg = msg + self.terminator
             self.log.info(f"Writing: {msg}")
             self.writer.write(msg.encode("ascii"))
             await self.writer.drain()
-            reply = await self.reader.readuntil(b"\r")
-            reply = reply.decode("ascii").strip("\r")
+            reply = await asyncio.wait_for(self.reader.readuntil(b"\r"), timeout=5)
+            reply = reply.decode("ascii").strip(self.terminator)
             if reply != "":
                 self.log.info(f"reply={reply}")
             return reply
@@ -184,14 +188,7 @@ class CBPComponent:
         async with self.lock:
             self.reader = None
             if self.writer is not None:
-                try:
-                    self.writer.write_eof()
-                    await asyncio.wait_for(self.writer.drain(), timeout=self.timeout)
-                finally:
-                    self.writer.close()
-                    await self.writer.wait_closed()
-                    self.writer = None
-                    self.connected = False
+                await tcpip.close_stream_writer(self.writer)
 
     async def get_azimuth(self):
         """Get the azimuth value."""
