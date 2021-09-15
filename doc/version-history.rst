@@ -2,8 +2,8 @@
 Version History
 ===============
 
-Unreleased
-==========
+v1.0.0
+======
 
 * CSC added
 * Documentation added
