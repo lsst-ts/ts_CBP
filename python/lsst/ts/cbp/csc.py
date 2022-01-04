@@ -3,6 +3,7 @@ from . import component, mock_server
 from .config_schema import CONFIG_SCHEMA
 import asyncio
 from lsst.ts import salobj
+from lsst.ts import utils
 
 __all__ = ["CBPCSC"]
 
@@ -59,7 +60,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         )
         self.component = component.CBPComponent(self)
         self.simulator = None
-        self.telemetry_task = salobj.make_done_future()
+        self.telemetry_task = utils.make_done_future()
         self.telemetry_interval = 0.5
         self.in_position_timeout = 20
         self.log.info("CBP CSC initialized")
