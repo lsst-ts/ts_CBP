@@ -2,7 +2,7 @@ from . import __version__
 from . import component, mock_server
 from .config_schema import CONFIG_SCHEMA
 import asyncio
-from lsst.ts import salobj
+from lsst.ts import salobj, utils
 
 __all__ = ["CBPCSC"]
 
@@ -59,7 +59,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         )
         self.component = component.CBPComponent(self)
         self.simulator = None
-        self.telemetry_task = salobj.make_done_future()
+        self.telemetry_task = utils.make_done_future()
         self.telemetry_interval = 0.5
         self.in_position_timeout = 20
         self.log.info("CBP CSC initialized")
@@ -87,7 +87,7 @@ class CBPCSC(salobj.ConfigurableCsc):
                 self.log.debug("Begin sending telemetry")
                 await self.component.update_status()
                 if not self.evt_target.has_data:
-                    self.evt_target.set_put(
+                    await self.evt_target.set_write(
                         azimuth=self.component.azimuth,
                         elevation=self.component.elevation,
                         focus=self.component.focus,

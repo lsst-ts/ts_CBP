@@ -123,7 +123,7 @@ class CBPComponent:
         mask_dict["9"].name = "Unknown"
         self.masks = mask_dict
 
-    def update_in_position(self):
+    async def update_in_position(self):
         """Update the in position status of each actuator,
         based on the most recently read encoder data.
 
@@ -132,7 +132,7 @@ class CBPComponent:
         did_change : `bool`
             True if anything changed (and so the event was published)
         """
-        return self.csc.evt_inPosition.set_put(
+        return await self.csc.evt_inPosition.set_write(
             azimuth=abs(self.azimuth - self.target.azimuth) < self.error_tolerance,
             elevation=abs(self.elevation - self.target.elevation)
             < self.error_tolerance,
@@ -193,7 +193,7 @@ class CBPComponent:
     async def get_azimuth(self):
         """Get the azimuth value."""
         azimuth = float(await self.send_command("az=?"))
-        self.csc.tel_azimuth.set_put(azimuth=azimuth)
+        await self.csc.tel_azimuth.set_write(azimuth=azimuth)
 
     async def move_azimuth(self, position: float):
         """Move the azimuth encoder.
@@ -210,9 +210,9 @@ class CBPComponent:
 
         """
         self.assert_in_range("azimuth", position, -45, 45)
-        self.csc.evt_target.set_put(azimuth=position)
+        await self.csc.evt_target.set_write(azimuth=position)
         await self.send_command(f"new_az={position}")
-        self.csc.evt_inPosition.set_put(azimuth=False)
+        await self.csc.evt_inPosition.set_write(azimuth=False)
 
     async def get_elevation(self):
         """Read and record the mount elevation encoder, in degrees.
@@ -221,7 +221,7 @@ class CBPComponent:
 
         """
         elevation = float(await self.send_command("alt=?"))
-        self.csc.tel_elevation.set_put(elevation=elevation)
+        await self.csc.tel_elevation.set_write(elevation=elevation)
 
     async def move_elevation(self, position: float):
         """Move the elevation encoder.
@@ -238,14 +238,14 @@ class CBPComponent:
 
         """
         self.assert_in_range("elevation", position, -69, 45)
-        self.csc.evt_target.set_put(elevation=position)
+        await self.csc.evt_target.set_write(elevation=position)
         await self.send_command(f"new_alt={position}")
-        self.csc.evt_inPosition.set_put(elevation=False)
+        await self.csc.evt_inPosition.set_write(elevation=False)
 
     async def get_focus(self):
         """Get the focus value."""
         focus = int(await self.send_command("foc=?"))
-        self.csc.tel_focus.set_put(focus=focus)
+        await self.csc.tel_focus.set_write(focus=focus)
 
     async def change_focus(self, position: int):
         """Change focus.
@@ -261,9 +261,9 @@ class CBPComponent:
             Raised when the new value falls outside the accepted range.
         """
         self.assert_in_range("focus", position, 0, 13000)
-        self.csc.evt_target.set_put(focus=int(position))
+        await self.csc.evt_target.set_write(focus=int(position))
         await self.send_command(f"new_foc={int(position)}")
-        self.csc.evt_inPosition.set_put(focus=False)
+        await self.csc.evt_inPosition.set_write(focus=False)
 
     async def get_mask(self):
         """Get mask and mask rotation value."""
@@ -272,7 +272,7 @@ class CBPComponent:
         mask = str(int(float(await self.send_command("msk=?"))))
         mask = self.masks.get(mask).name
         mask_rotation = float(await self.send_command("rot=?"))
-        self.csc.tel_mask.set_put(mask=mask, mask_rotation=mask_rotation)
+        await self.csc.tel_mask.set_write(mask=mask, mask_rotation=mask_rotation)
 
     async def set_mask(self, mask: str):
         """Set the mask value
@@ -289,7 +289,7 @@ class CBPComponent:
             Raised when new mask is not a key in the dictionary.
 
         """
-        self.csc.evt_target.set_put(mask=self.masks.get(mask).name)
+        await self.csc.evt_target.set_write(mask=self.masks.get(mask).name)
         await self.send_command(f"new_msk={self.masks.get(mask).id}")
 
     async def set_mask_rotation(self, mask_rotation: float):
@@ -308,15 +308,15 @@ class CBPComponent:
 
         """
         self.assert_in_range("mask_rotation", mask_rotation, 0, 360)
-        self.csc.evt_target.set_put(mask_rotation=mask_rotation)
+        await self.csc.evt_target.set_write(mask_rotation=mask_rotation)
         await self.send_command(f"new_rot={mask_rotation}")
-        self.csc.evt_inPosition.set_put(mask_rotation=False)
+        await self.csc.evt_inPosition.set_write(mask_rotation=False)
 
     async def check_park(self):
         """Get the park variable from CBP."""
         parked = bool(int(await self.send_command("park=?")))
         autoparked = bool(int(await self.send_command("autopark=?")))
-        self.csc.tel_parked.set_put(parked=parked, autoparked=autoparked)
+        await self.csc.tel_parked.set_write(parked=parked, autoparked=autoparked)
 
     async def set_park(self):
         """Park the CBP."""
@@ -336,7 +336,7 @@ class CBPComponent:
         mask = bool(int(await self.send_command("ACstat=?")))
         mask_rotation = bool(int(await self.send_command("ADstat=?")))
         focus = bool(int(await self.send_command("AEstat=?")))
-        self.csc.tel_status.set_put(
+        await self.csc.tel_status.set_write(
             panic=panic,
             azimuth=azimuth,
             elevation=elevation,
@@ -377,7 +377,7 @@ class CBPComponent:
         await self.check_cbp_status()
         await self.check_park()
         await self.get_cbp_telemetry()
-        self.update_in_position()
+        await self.update_in_position()
 
     def assert_in_range(self, name, value, min_value, max_value):
         """Raise ValueError if a value is out of range.

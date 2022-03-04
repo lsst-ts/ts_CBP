@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.1.0
+======
+
+* Update to salobj 7
+
 v1.0.0
 ======
 
