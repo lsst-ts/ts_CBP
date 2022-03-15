@@ -1,16 +1,25 @@
 import unittest
+import os
+import pathlib
 
 from lsst.ts import salobj, cbp
 
 STD_TIMEOUT = 15
+TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1].joinpath("tests", "data", "config")
 
 
 class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
+    def setUp(self) -> None:
+        os.environ["LSST_SITE"] = "cbp"
+        return super().setUp()
+
     def basic_make_csc(
         self, initial_state, config_dir=None, simulation_mode=1, **kwargs
     ):
         return cbp.csc.CBPCSC(
-            initial_state=initial_state, simulation_mode=simulation_mode
+            initial_state=initial_state,
+            simulation_mode=simulation_mode,
+            config_dir=TEST_CONFIG_DIR,
         )
 
     async def test_standard_state_transitions(self):
@@ -107,22 +116,6 @@ class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
                 )
                 await self.assert_next_sample(
                     topic=self.remote.evt_inPosition,
-                    azimuth=True,
-                    elevation=True,
-                    mask=True,
-                    mask_rotation=True,
-                    focus=True,
-                )
-                await self.assert_next_sample(
-                    topic=self.remote.evt_inPosition,
-                    azimuth=True,
-                    elevation=False,
-                    mask=True,
-                    mask_rotation=True,
-                    focus=True,
-                )
-                await self.assert_next_sample(
-                    topic=self.remote.evt_inPosition,
                     azimuth=False,
                     elevation=False,
                     mask=True,
@@ -156,7 +149,7 @@ class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
             await self.assert_next_sample(topic=self.remote.tel_elevation, elevation=0)
             await self.assert_next_sample(topic=self.remote.tel_focus, focus=0)
             await self.assert_next_sample(
-                topic=self.remote.tel_mask, mask="Mask 1", mask_rotation=0
+                topic=self.remote.tel_mask, mask="mask 1", mask_rotation=0
             )
             await self.assert_next_sample(
                 topic=self.remote.evt_inPosition,
@@ -170,7 +163,7 @@ class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
                 topic=self.remote.evt_target,
                 azimuth=0,
                 elevation=0,
-                mask="Mask 1",
+                mask="mask 1",
                 mask_rotation=0,
                 focus=0,
                 flush=False,
@@ -242,12 +235,12 @@ class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
                 topic=self.remote.evt_target,
                 azimuth=0,
                 elevation=0,
-                mask="Mask 1",
+                mask="mask 1",
                 mask_rotation=0,
                 focus=0,
             )
             await self.assert_next_sample(
-                topic=self.remote.tel_mask, mask="Mask 1", mask_rotation=0
+                topic=self.remote.tel_mask, mask="mask 1", mask_rotation=0
             )
 
             with self.subTest("Not a mask"):

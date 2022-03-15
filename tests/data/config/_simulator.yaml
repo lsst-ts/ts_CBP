@@ -1,0 +1,17 @@
+address: localhost
+port: 9999
+mask1:
+    name: mask 1
+    rotation: 30
+mask2:
+    name: mask 2
+    rotation: 60
+mask3:
+    name: mask 3
+    rotation: 90
+mask4:
+    name: mask 4
+    rotation: 120
+mask5:
+    name: mask 5
+    rotation: 150

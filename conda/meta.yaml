@@ -24,6 +24,7 @@ test:
         - ts-dds
         - ts-idl {{ idl_version }}
         - ts-salobj {{ salobj_version }}
+        - ts-utils
         - ts-tcpip
     source_files:
         - python
@@ -48,3 +49,4 @@ requirements:
         - ts-idl
         - ts-simactuators
         - ts-tcpip
+        - ts-utils
