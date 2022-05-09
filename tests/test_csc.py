@@ -35,7 +35,7 @@ class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
             )
 
     async def test_bin_script(self):
-        await self.check_bin_script(name="CBP", exe_name="run_cbp.py", index=None)
+        await self.check_bin_script(name="CBP", exe_name="run_cbp", index=None)
 
     async def test_move(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
