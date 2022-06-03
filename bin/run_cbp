@@ -2,4 +2,4 @@
 
 from lsst.ts.cbp.cli import execute_csc
 
-execute_csc
+execute_csc()
