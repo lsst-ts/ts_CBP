@@ -7,6 +7,7 @@ source:
     path: ../
 
 build:
+    noarch: generic
     script: python -m pip install --no-deps --ignore-installed .
     entry_points:
         - run_cbp = lsst.ts.cbp.cli:execute_csc
@@ -28,6 +29,7 @@ test:
         - ts-salobj {{ salobj_version }}
         - ts-utils
         - ts-tcpip
+        - ts-simactuators
     source_files:
         - python
         - bin
