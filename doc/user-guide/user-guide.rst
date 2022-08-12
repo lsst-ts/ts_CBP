@@ -16,34 +16,29 @@ CBP Interface
 
 A link to the SAL API can be found at the top of the :doc:`index </index>`.
 
-The main commands that will likely be used are 
+The main commands that will likely be used are:
 
-:ref:`ts_xml:CBP:Commands:move`
+    - :ref:`ts_xml:CBP:Commands:move`
+    - :ref:`ts_xml:CBP:Commands:changeMask`
 
-:ref:`ts_xml:CBP:Commands:changeMask`
+The relevant events include:
 
-The relevant events include
+    - :ref:`ts_xml:CBP:Events:target`
+    - :ref:`ts_xml:CBP:Events:inPosition`
 
-:ref:`ts_xml:CBP:Events:target`
+The relevant telemetry include:
 
-:ref:`ts_xml:CBP:Events:inPosition`
-
-The relevant telemetry include
-
-:ref:`ts_xml:CBP:Telemetry:azimuth`
-
-:ref:`ts_xml:CBP:Telemetry:elevation`
-
-:ref:`ts_xml:CBP:Telemetry:mask`
-
-:ref:`ts_xml:CBP:Telemetry:status`
+    - :ref:`ts_xml:CBP:Telemetry:azimuth`
+    - :ref:`ts_xml:CBP:Telemetry:elevation`
+    - :ref:`ts_xml:CBP:Telemetry:mask`
+    - :ref:`ts_xml:CBP:Telemetry:status`
 
 .. _user-guide:user-guide:example-use-case:
 
 Example Use-Case
 ================
 
-Starting the CSC
+Starting the CSC:
 
 .. code::
 
@@ -55,45 +50,46 @@ Starting the CSC
 
     await cbp.start_task
 
-Un-parking the CSC
+Un-parking the CSC:
 
 .. code::
 
     await cbp.cmd_park.set_start(park=False, timeout=10)
 
-Moving the CBP in azimuth
+When moving the CBP in azimuth and elevation to a desired position, both values must always be provided
+The following code snippet demonstrates the command:
 
 .. code::
 
-    await cbp.cmd_moveAzimuth.set_start(azimuth=30, timeout=10)
+    await cbp.cmd_move.set_start(azimuth=5, elevation=10, timeout=10)
 
-Moving the CBP in altitude
+Moving the CBP in altitude:
 
 .. code::
 
     await cbp.cmd_moveAltitude.set_start(altitude=45, timeout=10)
 
-Changing CBP's mask.
+Changing CBP's mask; note that this can take up to a minute.
 
 .. code::
 
-    await cbp.cmd_changeMask(mask="1")
+    await cbp.cmd_changeMask.set_start(mask="1")
 
-Getting telemetry from the CBP
+Getting telemetry from the CBP:
 
 .. code::
 
     azimuth = await cbp.tel_azimuth.aget(timeout=2)
     altitude = await cbp.tel_altitude.aget(timeout=2)
 
-Getting events from the CBP
+Getting events from the CBP:
 
 .. code::
 
     target = await cbp.evt_target.aget(timeout=2)
     in_position = await cbp.evt_inPosition.aget(timeout=2)
 
-Clean up
+Clean up and shut down the script/notebook gracefully:
 
 .. code::
 

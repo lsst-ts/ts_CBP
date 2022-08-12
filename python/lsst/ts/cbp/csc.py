@@ -57,7 +57,7 @@ class CBPCSC(salobj.ConfigurableCsc):
             simulation_mode=simulation_mode,
             config_schema=CONFIG_SCHEMA,
         )
-        self.component = component.CBPComponent(self)
+        self.component = component.CBPComponent(self, log=self.log)
         self.simulator = None
         self.telemetry_task = utils.make_done_future()
         self.telemetry_interval = 0.5
@@ -74,10 +74,16 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.log.debug("Begin move")
         self.assert_enabled("move")
-        await asyncio.gather(
-            self.component.move_elevation(data.elevation),
-            self.component.move_azimuth(data.azimuth),
-        )
+        # await asyncio.gather(
+        #     self.component.move_elevation(data.elevation),
+        #     self.component.move_azimuth(data.azimuth),
+        # )
+        self.log.debug("Moving Elevation from CSC move command")
+        await self.component.move_elevation(data.elevation)
+        self.log.debug("Moving Azimuth from CSC move command")
+        await self.component.move_azimuth(data.azimuth)
+
+        self.log.debug("Waiting for in-position")
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
 
     async def telemetry(self):
@@ -102,6 +108,7 @@ class CBPCSC(salobj.ConfigurableCsc):
             except Exception as e:
                 self.log.error(f"{e}")
 
+            self.log.debug("Telemetry loop cycle completed")
             await asyncio.sleep(self.telemetry_interval)
 
     async def do_setFocus(self, data):

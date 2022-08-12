@@ -4,6 +4,18 @@ CBP Developer Guide
 
 The CBP software consists of a typical salobj CSC, a firmware written in DMC and a TCP/IP socket controller written in python.
 
+The Galil DMC-4183 controller supplied with the CBP has a MAC address of 00-50-4C-38-28-74.
+The IP is hardcoded.
+Use the GalilTools (or newer version) via a USB connection to modify the address and subnet using the following commands:
+
+- DH 0  --> Sets the IP to be set manually and not use DHCP (which doesn't appear to work well)
+- IA WWW,XXX,YYY,ZZZ --> sets the IP address. Note the use of the comma instead of a period
+- SM 255,255,255,0 --> Sets the subnet
+- TH --> Shows the connections and current IP setup.
+- BN --> Burns the information to the non-volitile memory
+
+The device supports being pinged, which is a good way verify connectivity.
+
 .. glossary::
 
     DMC
