@@ -32,7 +32,7 @@ pipeline {
                 // When using the docker container, we need to change
                 // the HOME path to WORKSPACE to have the authority
                 // to install the packages.
-                withEnv(["HOME=${env.WORKSPACE}"]) {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
                     sh """
                         source /home/saluser/.setup_dev.sh || echo loading env failed. Continuing...
                         cd /home/saluser/repos/ts_xml
@@ -51,8 +51,6 @@ pipeline {
                         /home/saluser/.checkout_repo.sh ${work_branches}
                         git pull
                         make_idl_files.py CBP
-                        cd $HOME
-                        pip install .[dev]
                     """
                 }
             }
@@ -65,11 +63,10 @@ pipeline {
                 // 'PATH' can only be updated in a single shell block.
                 // We can not update PATH in 'environment' block.
                 // Pytest needs to export the junit report.
-                withEnv(["HOME=${env.WORKSPACE}"]) {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
                     sh """
                         source /home/saluser/.setup_dev.sh || echo loading env failed. Continuing...
                         export TS_CONFIG_MTCALSYS_DIR=/home/saluser/repos/ts_config_mtcalsys
-                        cd $HOME
                         pip install .[dev]
                         pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT}
                     """
@@ -78,7 +75,7 @@ pipeline {
         }
         stage('Build and Upload Documentation') {
             steps {
-                withEnv(["HOME=${env.WORKSPACE}"]) {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
                     sh """
                     source /home/saluser/.setup_dev.sh || echo loading env failed. Continuing...
                     pip install .[dev]

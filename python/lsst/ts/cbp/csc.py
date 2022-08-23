@@ -74,14 +74,10 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.log.debug("Begin move")
         self.assert_enabled("move")
-        # await asyncio.gather(
-        #     self.component.move_elevation(data.elevation),
-        #     self.component.move_azimuth(data.azimuth),
-        # )
-        self.log.debug("Moving Elevation from CSC move command")
-        await self.component.move_elevation(data.elevation)
-        self.log.debug("Moving Azimuth from CSC move command")
-        await self.component.move_azimuth(data.azimuth)
+        await asyncio.gather(
+            self.component.move_elevation(data.elevation),
+            self.component.move_azimuth(data.azimuth),
+        )
 
         self.log.debug("Waiting for in-position")
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
@@ -105,8 +101,8 @@ class CBPCSC(salobj.ConfigurableCsc):
                     return
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                self.log.error(f"{e}")
+            except Exception:
+                self.log.exception("Something went wrong")
 
             self.log.debug("Telemetry loop cycle completed")
             await asyncio.sleep(self.telemetry_interval)
@@ -171,11 +167,11 @@ class CBPCSC(salobj.ConfigurableCsc):
             if self.component.parked:
                 await self.component.set_unpark()
         else:
+            self.telemetry_task.cancel()
+            await self.component.disconnect()
             if self.simulator is not None:
                 await self.simulator.close()
                 self.simulator = None
-            await self.component.disconnect()
-            self.telemetry_task.cancel()
 
     async def configure(self, config):
         """Configure the CSC.
@@ -209,12 +205,13 @@ class CBPCSC(salobj.ConfigurableCsc):
             await asyncio.sleep(self.telemetry_interval)
         self.log.info("Motion finished")
 
+    @property
     def position(self):
         """Is all of the axes of the CBP in position."""
         return (
             self.component.in_position.azimuth
             and self.component.in_position.elevation
             and self.component.in_position.focus
-            and self.component.in_position.mask_rotate
-            and self.component.in_position.mask_select
+            and self.component.in_position.mask_rotation
+            and self.component.in_position.mask
         )

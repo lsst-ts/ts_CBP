@@ -249,6 +249,21 @@ class CBPCSCTestCase(unittest.IsolatedAsyncioTestCase, salobj.BaseCscTestCase):
                         mask="6", timeout=STD_TIMEOUT
                     )
 
+    async def test_reconnect(self):
+        async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
+            await self.remote.cmd_disable.set_start(timeout=STD_TIMEOUT)
+            await self.remote.cmd_standby.set_start(timeout=STD_TIMEOUT)
+            await self.remote.cmd_start.set_start(timeout=STD_TIMEOUT)
+            await self.assert_next_sample(
+                topic=self.remote.tel_status,
+                azimuth=False,
+                elevation=False,
+                panic=False,
+                mask=False,
+                mask_rotation=False,
+                focus=False,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

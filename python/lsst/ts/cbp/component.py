@@ -19,6 +19,9 @@ class CBPComponent:
     ----------
     csc : `CBPCSC`
         The running CSC for the CBP.
+    log : `None` or `logging.Logger`
+        Optionally, the DDS logger can be passed to this class
+        to publish log messages over DDS.
 
     Attributes
     ----------
@@ -33,6 +36,7 @@ class CBPComponent:
     port : `int`
     connected : `bool`
     error_tolerance : `float`
+    focus_crosstalk : `float`
 
     Notes
     -----
@@ -64,6 +68,7 @@ class CBPComponent:
         # 9999 divided by 186413 is approximately 0.053
         # So the value is set to 0.1
         self.error_tolerance = 0.1
+        self.focus_crosstalk = 0.5
         self.terminator = "\r\n"
         self.generate_mask_info()
         self.log.info("CBP component initialized")
@@ -136,20 +141,6 @@ class CBPComponent:
         did_change : `bool`
             True if anything changed (and so the event was published)
         """
-        # self.log.debug("In update_in_position")
-        # self.log.debug(
-        #     f"azimuth={abs(self.azimuth - self.target.azimuth) < self.error_tolerance}"
-        # )
-        # self.log.debug(
-        #     f"elevation={abs(self.elevation - self.target.elevation) < self.error_tolerance}"
-        # )
-        # self.log.debug(f"mask={self.mask == self.target.mask}")
-        # self.log.debug(
-        #     f"mask_rotation={(abs(self.mask_rotation - self.target.mask_rotation) < self.error_tolerance )}"
-        # )
-        # self.log.debug(
-        #     f"focus={abs(self.focus - self.target.focus) < self.error_tolerance}"
-        # )
 
         did_change = await self.csc.evt_inPosition.set_write(
             azimuth=abs(self.azimuth - self.target.azimuth) < self.error_tolerance,
@@ -160,7 +151,7 @@ class CBPComponent:
                 abs(self.mask_rotation - self.target.mask_rotation)
                 < self.error_tolerance
             ),
-            focus=abs(self.focus - self.target.focus) < self.error_tolerance,
+            focus=abs(self.focus - self.target.focus) < self.focus_crosstalk,
         )
         return did_change
 
@@ -177,6 +168,11 @@ class CBPComponent:
         log :  `bool`
             Call with False to suppress log messages.
             Useful for debugging purposes to limit output.
+        await_reply : `bool`
+            If false, don't wait for reply else wait for reply.
+        await_terminator : `bool`
+            If false, reply has no terminator else reply has expected
+            terminator.
 
         Returns
         -------
@@ -195,19 +191,16 @@ class CBPComponent:
                     self.reader.readuntil(self.terminator.encode("ascii")), timeout=5
                 )
             elif await_reply and not await_terminator:
-                #
                 reply = await asyncio.wait_for(self.reader.read(1024), timeout=5)
             else:
-                reply = ""
+                reply = ":"
 
-            if reply != "":
+            if reply != ":":
                 if log:
-                    self.log.info(f"reply={reply}")
-                # reply = reply.decode("ascii").strip(self.terminator)
-                # a colon and space seems to creep into the response, unsure why
-                reply = float((reply.decode("ascii").strip(":").strip(" ")))
+                    self.log.debug(f"reply={reply}")
+                reply = reply.decode("ascii").strip(f":{self.terminator}")
                 if log:
-                    self.log.info(f"stripped reply={reply}")
+                    self.log.debug(f"stripped reply={reply}")
             return reply
 
     async def connect(self):
@@ -228,13 +221,20 @@ class CBPComponent:
         Safe to call even if already disconnected.
         """
         async with self.lock:
-            self.reader = None
-            if self.writer is not None:
+            if self.writer is None:
+                return
+            try:
                 await tcpip.close_stream_writer(self.writer)
+            except Exception:
+                self.log.exception("disconnect failed, continuing")
+            finally:
+                self.writer = None
+                self.reader = None
+                self.connected = False
 
     async def get_azimuth(self):
         """Get the azimuth value."""
-        azimuth = float(await self.send_command("az=?", log=False))
+        azimuth = float(await self.send_command("az=?"))
         await self.csc.tel_azimuth.set_write(azimuth=azimuth)
 
     async def move_azimuth(self, position: float):
@@ -254,7 +254,7 @@ class CBPComponent:
         self.assert_in_range("azimuth", position, -45, 45)
         await self.csc.evt_inPosition.set_write(azimuth=False)
         await self.csc.evt_target.set_write(azimuth=position)
-        await self.send_command(f"new_az={position}", await_reply=False)
+        await self.send_command(f"new_az={position}", await_terminator=False)
 
     async def get_elevation(self):
         """Read and record the mount elevation encoder, in degrees.
@@ -262,7 +262,7 @@ class CBPComponent:
         Note that the low-level controller calls this axis "altitude".
 
         """
-        elevation = float(await self.send_command("alt=?", log=False))
+        elevation = float(await self.send_command("alt=?"))
         await self.csc.tel_elevation.set_write(elevation=elevation)
 
     async def move_elevation(self, position: float):
@@ -282,12 +282,12 @@ class CBPComponent:
         self.assert_in_range("elevation", position, -69, 45)
         await self.csc.evt_inPosition.set_write(elevation=False)
         await self.csc.evt_target.set_write(elevation=position)
-        await self.send_command(f"new_alt={position}", await_reply=False)
+        await self.send_command(f"new_alt={position}", await_terminator=False)
         self.log.debug("move_elevation command sent")
 
     async def get_focus(self):
         """Get the focus value."""
-        focus = int(await self.send_command("foc=?", log=False))
+        focus = float(await self.send_command("foc=?"))
         await self.csc.tel_focus.set_write(focus=focus)
 
     async def change_focus(self, position: int):
@@ -314,7 +314,9 @@ class CBPComponent:
         """Get mask and mask rotation value."""
         # If mask encoder is off then it will return "9.0" which is unknown
         # mask
-        mask = str(int(float(await self.send_command("msk=?", log=False))))
+        self.log.debug(f"{self.masks=}")
+        mask = str(int(float(await self.send_command("msk=?"))))
+        self.log.debug(f"{mask=}")
         mask = self.masks.get(mask).name
         mask_rotation = float(await self.send_command("rot=?", log=False))
         await self.csc.tel_mask.set_write(mask=mask, mask_rotation=mask_rotation)
@@ -335,7 +337,9 @@ class CBPComponent:
 
         """
         await self.csc.evt_target.set_write(mask=self.masks.get(mask).name)
-        await self.send_command(f"new_msk={self.masks.get(mask).id}")
+        await self.send_command(
+            f"new_msk={self.masks.get(mask).id}", await_terminator=False
+        )
 
     async def set_mask_rotation(self, mask_rotation: float):
         """Set the mask rotation
@@ -354,33 +358,33 @@ class CBPComponent:
         """
         self.assert_in_range("mask_rotation", mask_rotation, 0, 360)
         await self.csc.evt_target.set_write(mask_rotation=mask_rotation)
-        await self.send_command(f"new_rot={mask_rotation}")
+        await self.send_command(f"new_rot={mask_rotation}", await_terminator=False)
         await self.csc.evt_inPosition.set_write(mask_rotation=False)
 
     async def check_park(self):
         """Get the park variable from CBP."""
-        parked = bool(int(await self.send_command("park=?", log=False)))
-        autoparked = bool(int(await self.send_command("autopark=?", log=False)))
+        parked = bool(int(float(await self.send_command("park=?", log=False))))
+        autoparked = bool(int(float(await self.send_command("autopark=?", log=False))))
         await self.csc.tel_parked.set_write(parked=parked, autoparked=autoparked)
 
     async def set_park(self):
         """Park the CBP."""
-        await self.send_command("park=1")
+        await self.send_command("park=1", await_terminator=False)
         await self.check_park()
 
     async def set_unpark(self):
         """Unpark the CBP."""
-        await self.send_command("park=0")
+        await self.send_command("park=0", await_terminator=False)
         await self.check_park()
 
     async def check_cbp_status(self):
         """Read and record the status of the encoders."""
-        panic = bool(int(await self.send_command("wdpanic=?", log=False)))
-        azimuth = bool(int(await self.send_command("AAstat=?", log=False)))
-        elevation = bool(int(await self.send_command("ABstat=?", log=False)))
-        mask = bool(int(await self.send_command("ACstat=?", log=False)))
-        mask_rotation = bool(int(await self.send_command("ADstat=?", log=False)))
-        focus = bool(int(await self.send_command("AEstat=?", log=False)))
+        panic = bool(int(float(await self.send_command("wdpanic=?", log=False))))
+        azimuth = bool(int(float(await self.send_command("AAstat=?", log=False))))
+        elevation = bool(int(float(await self.send_command("ABstat=?", log=False))))
+        mask = bool(int(float(await self.send_command("ACstat=?", log=False))))
+        mask_rotation = bool(int(float(await self.send_command("ADstat=?", log=False))))
+        focus = bool(int(float(await self.send_command("AEstat=?", log=False))))
         await self.csc.tel_status.set_write(
             panic=panic,
             azimuth=azimuth,
@@ -416,16 +420,14 @@ class CBPComponent:
         self.masks["4"].rotation = config.mask4["rotation"]
         self.masks["5"].name = config.mask5["name"]
         self.masks["5"].rotation = config.mask5["rotation"]
+        self.error_tolerance = config.encoder_tolerance
+        self.focus_crosstalk = config.focus_crosstalk
 
     async def update_status(self):
         """Update the status."""
-        # self.log.debug("getting check_cbp_status")
         await self.check_cbp_status()
-        # self.log.debug("getting check_park")
         await self.check_park()
-        # self.log.debug("getting cbp telemetry")
         await self.get_cbp_telemetry()
-        # self.log.debug("getting inPosition telemetry")
         await self.update_in_position()
 
     def assert_in_range(self, name, value, min_value, max_value):
