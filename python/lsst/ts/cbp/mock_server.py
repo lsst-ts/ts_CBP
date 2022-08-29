@@ -29,7 +29,7 @@ class Encoders:
             min_position=-69, max_position=45, speed=10, start_position=0
         )
         self.focus = simactuators.PointToPointActuator(
-            min_position=0, max_position=13000, speed=200, start_position=0
+            min_position=0, max_position=13000, speed=1000, start_position=0
         )
         self.mask_select = simactuators.PointToPointActuator(
             min_position=1, max_position=5, speed=1, start_position=1
@@ -83,11 +83,13 @@ class MockServer(tcpip.OneClientServer):
         self.altitude = 0
         self.focus = 0
         self.mask = 1
-        self.panic_status = False
+        self.panic_status = 0.0
         self.encoders = Encoders()
         self.park = False
         self.auto_park = False
         self.masks_rotation = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        self.terminator = "\r\n"
+        self.movement_reply = ":"
         self.commands = (
             (re.compile(r"az=\?"), self.do_azimuth),
             (re.compile(r"alt=\?"), self.do_altitude),
@@ -140,12 +142,12 @@ class MockServer(tcpip.OneClientServer):
         """
         while self.connected:
             self.log.debug("In cmd loop")
-            line = await self.reader.readuntil(b"\r")
+            line = await self.reader.readuntil(self.terminator.encode())
             self.log.debug(f"Received: {line}")
             if not line:
                 self.writer.close()
                 return
-            line = line.decode().strip("\r")
+            line = line.decode().strip(self.terminator)
             self.log.debug(f"Decoded {line}")
             for regex, command_method in self.commands:
                 matched_command = regex.fullmatch(line)
@@ -173,9 +175,10 @@ class MockServer(tcpip.OneClientServer):
                         # TODO DM-27693: reply with an error signal so the
                         # client knows there is a problem
                     else:
-                        self.writer.write(msg.encode("ascii") + b"\r")
-                        self.log.debug(f"Wrote {msg}")
-                        await self.writer.drain()
+                        if msg is not None:
+                            self.writer.write(msg.encode("ascii") + b"\r\n")
+                            self.log.debug(f"Wrote {msg}")
+                            await self.writer.drain()
                     break
 
     def set_constrained_position(self, value, actuator):
@@ -215,7 +218,7 @@ class MockServer(tcpip.OneClientServer):
         str
         """
         self.set_constrained_position(float(azimuth), self.encoders.azimuth)
-        return ""
+        return self.movement_reply
 
     async def do_altitude(self):
         """Return the altitude position.
@@ -238,7 +241,7 @@ class MockServer(tcpip.OneClientServer):
         str
         """
         self.set_constrained_position(float(altitude), self.encoders.elevation)
-        return ""
+        return self.movement_reply
 
     async def do_focus(self):
         """Return the focus value.
@@ -261,7 +264,7 @@ class MockServer(tcpip.OneClientServer):
         str
         """
         self.set_constrained_position(value=int(focus), actuator=self.encoders.focus)
-        return ""
+        return self.movement_reply
 
     async def do_mask(self):
         """Return the mask value.
@@ -286,7 +289,7 @@ class MockServer(tcpip.OneClientServer):
         self.set_constrained_position(
             value=int(mask), actuator=self.encoders.mask_select
         )
-        return ""
+        return self.movement_reply
 
     async def do_rotation(self):
         """Return the mask rotation value.
@@ -311,7 +314,7 @@ class MockServer(tcpip.OneClientServer):
         self.set_constrained_position(
             value=float(rotation), actuator=self.encoders.mask_rotate
         )
-        return ""
+        return self.movement_reply
 
     async def do_park(self, park="?"):
         """Park or unpark the CBP.
@@ -326,12 +329,12 @@ class MockServer(tcpip.OneClientServer):
         """
         if park == "?":
             self.log.info(f"Park: {self.park}")
-            return f"{int(self.park)}"
+            return f"{float(self.park)}"
         else:
             self.log.info(f"Park: {park}")
             self.park = bool(int(park))
             self.log.info(f"Park: {self.park}")
-            return ""
+            return self.movement_reply
 
     async def do_panic(self):
         """Return the panic status value.
@@ -340,7 +343,7 @@ class MockServer(tcpip.OneClientServer):
         -------
         str
         """
-        return f"{int(self.panic_status)}"
+        return f"{float(self.panic_status)}"
 
     async def do_aastat(self):
         """Return the azimuth encoder status.
@@ -349,7 +352,7 @@ class MockServer(tcpip.OneClientServer):
         -------
         str
         """
-        return "0"
+        return f"{float(0)}"
 
     async def do_abstat(self):
         """Return the altitude encoder status.
@@ -358,7 +361,7 @@ class MockServer(tcpip.OneClientServer):
         -------
         str
         """
-        return "0"
+        return f"{float(0)}"
 
     async def do_acstat(self):
         """Return the focus encoder status.
@@ -367,7 +370,7 @@ class MockServer(tcpip.OneClientServer):
         -------
         str
         """
-        return "0"
+        return f"{float(0)}"
 
     async def do_adstat(self):
         """Return the mask selection encoder status.
@@ -376,7 +379,7 @@ class MockServer(tcpip.OneClientServer):
         -------
         str
         """
-        return "0"
+        return f"{float(0)}"
 
     async def do_aestat(self):
         """Return the mask rotation encoder status.
@@ -385,7 +388,7 @@ class MockServer(tcpip.OneClientServer):
         -------
         str
         """
-        return "0"
+        return f"{float(0)}"
 
     async def do_autopark(self):
         """Return the autopark value.
@@ -394,4 +397,4 @@ class MockServer(tcpip.OneClientServer):
         -------
         str
         """
-        return "0"
+        return f"{float(0)}"

@@ -15,3 +15,5 @@ mask4:
 mask5:
     name: mask 5
     rotation: 150
+encoder_tolerance: 0.1
+focus_crosstalk: 0.4

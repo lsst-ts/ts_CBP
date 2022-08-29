@@ -15,7 +15,7 @@ properties:
     type: string
     default: "127.0.0.1"
   port:
-    description: port of CBP
+    description: Network port of CBP
     type: integer
     default: 9999
   mask1:
@@ -23,11 +23,11 @@ properties:
     type: object
     properties:
       name:
-        description: name of mask
+        description: Name of mask
         type: string
         default: "Mask 1"
       rotation:
-        description: rotation of mask (degree)
+        description: Rotation of mask (degree)
         type: number
         default: 30
   mask2:
@@ -35,10 +35,11 @@ properties:
     type: object
     properties:
       name:
+        description: Name of Mask
         type: string
         default: "Mask 2"
       rotation:
-        description: rotation of mask (degree)
+        description: Rotation of mask (degree)
         type: number
         default: 60
   mask3:
@@ -46,10 +47,11 @@ properties:
     type: object
     properties:
       name:
+        description: Name of Mask
         type: string
         default: "Mask 3"
       rotation:
-        description: rotation of mask (degree)
+        description: Rotation of mask (degree)
         type: number
         default: 90
   mask4:
@@ -57,24 +59,34 @@ properties:
     type: object
     properties:
       name:
+        description: Name of Mask
         type: string
         default: "Mask 4"
       rotation:
         type: number
-        description: rotation of mask (degree)
+        description: Rotation of mask (degree)
         default: 120
   mask5:
     description: Mask 5 of CBP
     type: object
     properties:
       name:
+        description: Name of Mask
         type: string
         default: "Mask 5"
       rotation:
         type: number
-        description: rotation of mask (degree)
+        description: Rotation of mask (degree)
         default: 150
-required: [address, port, mask1, mask2, mask3, mask4, mask5]
+  encoder_tolerance:
+    description: Encoder error tolerance for in_position event
+    type: number
+    default: 0.1
+  focus_crosstalk:
+    description: Focus encoder crosstalk when moving tolerance
+    type: number
+    default: 0.4
+required: [address, port, mask1, mask2, mask3, mask4, mask5, encoder_tolerance, focus_crosstalk]
 additionalProperties: false
 """
 )
