@@ -36,7 +36,18 @@ flake8-max-line-length = "110"
 flake8-max-doc-length = "79"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-flake8", "pytest-coverage", "asynctest", "black", "pytest-black"]
+dev = [
+    "pytest",
+    "pytest-flake8",
+    "pytest-coverage",
+    "asynctest",
+    "black", 
+    "pytest-black",
+    "ts_tcpip @ git+https://github.com/lsst-ts/ts_tcpip",
+    "ts_simactuators @ git+https://github.com/lsst-ts/ts_simactuators",
+    "ts_salobj @ git+https://github.com/lsst-ts/ts_salobj",
+    "flakeheaven"
+]
 
 [tool.flakeheaven]
 exclude = ["__init__.py", "doc/*.py", "version.py", "tests/.tests"]
