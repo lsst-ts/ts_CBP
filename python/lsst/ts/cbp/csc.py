@@ -1,10 +1,15 @@
-from . import __version__
-from . import component, mock_server
-from .config_schema import CONFIG_SCHEMA
 import asyncio
+
 from lsst.ts import salobj, utils
 
-__all__ = ["CBPCSC"]
+from . import __version__, component, mock_server
+from .config_schema import CONFIG_SCHEMA
+
+__all__ = ["CBPCSC", "execute_csc"]
+
+
+def execute_csc():
+    asyncio.run(CBPCSC.amain(index=None))
 
 
 class CBPCSC(salobj.ConfigurableCsc):
@@ -48,7 +53,6 @@ class CBPCSC(salobj.ConfigurableCsc):
         initial_state: salobj.State = salobj.State.STANDBY,
         config_dir=None,
     ):
-
         super().__init__(
             name="CBP",
             index=0,

@@ -1,12 +1,11 @@
 __all__ = ["Encoders", "MockServer"]
 
 import asyncio
-import re
-import logging
 import enum
+import logging
+import re
 
-from lsst.ts import simactuators
-from lsst.ts import tcpip
+from lsst.ts import simactuators, tcpip
 
 
 class Encoders:
@@ -126,7 +125,7 @@ class MockServer(tcpip.OneClientServer):
             log=self.log,
         )
 
-    def connect_callback(self, server):
+    async def connect_callback(self, server):
         self.read_loop_task.cancel()
         if server.connected:
             self.read_loop_task = asyncio.create_task(self.cmd_loop())
