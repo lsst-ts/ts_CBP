@@ -1,7 +1,7 @@
 __all__ = ["CBPComponent"]
 
-import logging
 import asyncio
+import logging
 import types
 
 from lsst.ts import tcpip
