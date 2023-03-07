@@ -127,3 +127,7 @@ version.py
 # sconsUtils
 .sconsign.dblite
 .sconf_temp
+.pre-commit-config.yaml
+.flake8
+.isort.cfg
+.mypy.ini
