@@ -17,7 +17,7 @@ version = { attr = "setuptools_scm.get_version" }
 where = [ "python" ]
 
 [project.scripts]
-run_cbp = "lsst.ts.cbp.cli:execute_csc"
+run_cbp = "lsst.ts.cbp:execute_csc"
 
 [tool.setuptools_scm]
 write_to = "python/lsst/ts/cbp/version.py"

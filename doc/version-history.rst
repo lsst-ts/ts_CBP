@@ -8,6 +8,7 @@ v1.2.0
 * Move config_schema to root namespace.
 * Fix connect_callback async warning.
 * Merge cli module into csc module.
+* Modernize conda recipe.
 
 v1.1.0
 ======
