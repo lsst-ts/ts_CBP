@@ -1,2 +1,2 @@
 @Library('JenkinsShared')_
-DevelopPipeline("ts-cbp", "CBP", "lsst.ts.cbp", "--no-mypy", [], false, [])
+DevelopPipeline(name: "ts-cbp", idl_name: "CBP", module_name: "lsst.ts.cbp", pre_commit_flags: "--no-mypy")
