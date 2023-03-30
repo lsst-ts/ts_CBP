@@ -1,2 +1,2 @@
 @Library('JenkinsShared')_
-CondaPipeline(["ts_config_mtcalsys"], "ts-cbp", "lsst.ts.cbp")
+CondaPipeline(config_repo: ["ts_config_mtcalsys"], name: "ts-cbp", module_name: "lsst.ts.cbp")

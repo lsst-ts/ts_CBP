@@ -5,6 +5,7 @@ Version History
 v1.2.1
 ======
 * Add ts_pre_commit_conf file
+* Use named parameters in CondaPipeline
 
 v1.2.0
 ======
