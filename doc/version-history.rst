@@ -2,6 +2,10 @@
 Version History
 ===============
 
+v1.2.1
+======
+* Add ts_pre_commit_conf file
+
 v1.2.0
 ======
 * Update precommit to black 23, isort 5.12 & check-yaml 4.4.
