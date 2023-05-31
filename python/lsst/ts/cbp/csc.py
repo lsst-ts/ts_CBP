@@ -186,6 +186,7 @@ class CBPCSC(salobj.ConfigurableCsc):
             if self.simulation_mode and self.simulator is None:
                 self.simulator = mock_server.MockServer()
                 await self.simulator.start_task
+                self.component.port = self.simulator.port
             if not self.component.connected:
                 await self.component.connect()
             if self.telemetry_task.done():
