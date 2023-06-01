@@ -1,6 +1,27 @@
+#
+# This file is part of ts_cbp.
+#
+# Developed for the Rubin Observatory Telescope and Site System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 __all__ = ["Encoders", "MockServer"]
 
-import asyncio
 import enum
 import logging
 import re
@@ -47,7 +68,7 @@ class StatusError(enum.Flag):
     TORQUE_LIMIT = enum.auto()
 
 
-class MockServer(tcpip.OneClientServer):
+class MockServer(tcpip.OneClientReadLoopServer):
     """Mocks the CBP server.
 
     Parameters
@@ -75,7 +96,6 @@ class MockServer(tcpip.OneClientServer):
 
     def __init__(self, log=None):
         self.log = logging.getLogger(__name__)
-        self.read_loop_task = asyncio.Future()
         self.timeout = 5
         self.long_timeout = 30
         self.azimuth = 0
@@ -87,7 +107,6 @@ class MockServer(tcpip.OneClientServer):
         self.park = False
         self.auto_park = False
         self.masks_rotation = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-        self.terminator = "\r\n"
         self.movement_reply = ":"
         self.commands = (
             (re.compile(r"az=\?"), self.do_azimuth),
@@ -118,17 +137,8 @@ class MockServer(tcpip.OneClientServer):
             (re.compile(r"AEstat=\?"), self.do_aestat),
         )
         super().__init__(
-            name="CBP Mock Server",
-            host=tcpip.LOCAL_HOST,
-            port=9999,
-            connect_callback=self.connect_callback,
-            log=self.log,
+            name="CBP Mock Server", host=tcpip.LOCAL_HOST, port=0, log=self.log
         )
-
-    async def connect_callback(self, server):
-        self.read_loop_task.cancel()
-        if server.connected:
-            self.read_loop_task = asyncio.create_task(self.cmd_loop())
 
     async def cmd_loop(self):
         """Run the command loop.
@@ -179,6 +189,29 @@ class MockServer(tcpip.OneClientServer):
                             self.log.debug(f"Wrote {msg}")
                             await self.writer.drain()
                     break
+
+    async def read_and_dispatch(self):
+        line = await self.read_str()
+        for regex, command_method in self.commands:
+            matched_command = regex.fullmatch(line)
+            if matched_command:
+                try:
+                    parameter = matched_command.group("parameter")
+                except IndexError:
+                    parameter = None
+                try:
+                    if parameter is None:
+                        msg = await command_method()
+                    else:
+                        msg = await command_method(parameter)
+                except ValueError:
+                    self.log.exception(f"Command {line} failed")
+                except Exception:
+                    self.log.exception(f"Command {line} failed unexpectedly")
+                else:
+                    if msg is not None:
+                        await self.write_str(msg)
+                break
 
     def set_constrained_position(self, value, actuator):
         """Set actuator to position that is silently constrained to bounds.

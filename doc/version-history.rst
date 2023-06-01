@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.3.0
+======
+* Use tcpip client class
+* Add missing license headers
+
 v1.2.1
 ======
 * Add ts_pre_commit_conf file

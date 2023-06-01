@@ -1,3 +1,25 @@
+#
+# This file is part of ts_cbp.
+#
+# Developed for the Rubin Observatory Telescope and Site System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 __all__ = ["CBPComponent"]
 
 import asyncio
@@ -54,15 +76,10 @@ class CBPComponent:
             self.log = logging.getLogger(type(self).__name__)
         else:
             self.log = log.getChild(type(self).__name__)
-        self.reader = None
-        self.writer = None
-        self.lock = asyncio.Lock()
         self.timeout = 5
         self.long_timeout = 30
-
         self.host = None
         self.port = None
-        self.connected = False
         # According to the firmware, error limit is 9999 steps for watchdog
         # Conversion from steps to degrees is 186413 steps to one degree
         # 9999 divided by 186413 is approximately 0.053
@@ -70,8 +87,17 @@ class CBPComponent:
         self.error_tolerance = 0.1
         self.focus_crosstalk = 0.5
         self.terminator = "\r\n"
+        self.client = None
+        self.client_lock = asyncio.Lock()
         self.generate_mask_info()
         self.log.info("CBP component initialized")
+
+    @property
+    def connected(self):
+        if self.client is not None:
+            return self.client.connected
+        else:
+            return False
 
     @property
     def target(self):
@@ -179,58 +205,33 @@ class CBPComponent:
         reply : `str`
             The reply to the command sent.
         """
-        async with self.lock:
-            msg = msg + self.terminator
-            if log:
-                self.log.info(f"Writing: {msg}")
-            self.writer.write(msg.encode("ascii"))
-            await self.writer.drain()
-
+        async with self.client_lock:
+            await self.client.write_str(msg)
             if await_reply and await_terminator:
-                reply = await asyncio.wait_for(
-                    self.reader.readuntil(self.terminator.encode("ascii")), timeout=5
-                )
+                reply = await self.client.read_str()
             elif await_reply and not await_terminator:
-                reply = await asyncio.wait_for(self.reader.read(1024), timeout=5)
+                reply = await self.client.read(1024)
             else:
                 reply = ":"
-
             if reply != ":":
-                if log:
-                    self.log.debug(f"reply={reply}")
-                reply = reply.decode("ascii").strip(f":{self.terminator}")
-                if log:
-                    self.log.debug(f"stripped reply={reply}")
-            return reply
+                return reply
 
     async def connect(self):
         """Create a socket and connect to the CBP's static address and
         designated port.
 
         """
-        async with self.lock:
-            connect_task = asyncio.open_connection(host=self.host, port=self.port)
-            self.reader, self.writer = await asyncio.wait_for(
-                connect_task, timeout=self.long_timeout
-            )
-            self.connected = True
+        self.client = tcpip.Client(host=self.host, port=self.port, log=self.csc.log)
+        await self.client.start_task
 
     async def disconnect(self):
         """Disconnect from the tcp socket.
 
         Safe to call even if already disconnected.
         """
-        async with self.lock:
-            if self.writer is None:
-                return
-            try:
-                await tcpip.close_stream_writer(self.writer)
-            except Exception:
-                self.log.exception("disconnect failed, continuing")
-            finally:
-                self.writer = None
-                self.reader = None
-                self.connected = False
+        if self.client is not None:
+            await self.client.close()
+            self.client = None
 
     async def get_azimuth(self):
         """Get the azimuth value."""
