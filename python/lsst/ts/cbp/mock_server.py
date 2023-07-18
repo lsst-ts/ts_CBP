@@ -124,6 +124,10 @@ class MockServer(tcpip.OneClientReadLoopServer):
             (re.compile(r"new_msk=(?P<parameter>[1-5])"), self.do_new_mask),
             (re.compile(r"rot=\?"), self.do_rotation),
             (
+                re.compile(r"new_rot=(?P<parameter>[0-1]?[0-3]?\d?\d?\d)"),
+                self.do_new_rotation,
+            ),
+            (
                 re.compile(r"new_az=(?P<parameter>-?[0-3][0-5]?\.?\d?)"),
                 self.do_new_azimuth,
             ),
@@ -226,6 +230,20 @@ class MockServer(tcpip.OneClientReadLoopServer):
         constrained_value = min(
             max(value, actuator.min_position), actuator.max_position
         )
+        self.log.info(f"constrained_value: {constrained_value}")
+        actuator.set_position(constrained_value)
+
+    def set_circular_constrained_position(self, value, actuator):
+        """Set actuator to position that is silently constrained to bounds.
+
+        Parameters
+        ----------
+        value : `float`
+            Desired value
+        actuator : `lsst.ts.simactuators.CircularPointToPointActuator`
+            The actuator to set.
+        """
+        constrained_value = min(max(0, value), 360)
         self.log.info(f"constrained_value: {constrained_value}")
         actuator.set_position(constrained_value)
 
@@ -343,7 +361,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         -------
         str
         """
-        self.set_constrained_position(
+        self.set_circular_constrained_position(
             value=float(rotation), actuator=self.encoders.mask_rotate
         )
         return self.movement_reply
