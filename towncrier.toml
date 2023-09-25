@@ -1,0 +1,6 @@
+[tool.towncrier]
+name = "ts_cbp"
+package = "lsst.ts.cbp"
+package_dir = "python"
+filename = "doc/version-history.rst"
+directory = "changes.d"
