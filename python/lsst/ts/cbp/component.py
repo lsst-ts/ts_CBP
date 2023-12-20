@@ -167,16 +167,13 @@ class CBPComponent:
         did_change : `bool`
             True if anything changed (and so the event was published)
         """
-
         did_change = await self.csc.evt_inPosition.set_write(
             azimuth=abs(self.azimuth - self.target.azimuth) < self.error_tolerance,
             elevation=abs(self.elevation - self.target.elevation)
             < self.error_tolerance,
             mask=self.mask == self.target.mask,
-            mask_rotation=(
-                abs(self.mask_rotation - self.target.mask_rotation)
-                < self.error_tolerance
-            ),
+            mask_rotation=abs(self.mask_rotation - self.target.mask_rotation)
+            < self.error_tolerance * 5,
             focus=abs(self.focus - self.target.focus) < self.focus_crosstalk,
         )
         return did_change
@@ -315,9 +312,7 @@ class CBPComponent:
         """Get mask and mask rotation value."""
         # If mask encoder is off then it will return "9.0" which is unknown
         # mask
-        self.log.debug(f"{self.masks=}")
         mask = str(int(float(await self.send_command("msk=?"))))
-        self.log.debug(f"{mask=}")
         mask = self.masks.get(mask).name
         mask_rotation = float(await self.send_command("rot=?", log=False))
         await self.csc.tel_mask.set_write(mask=mask, mask_rotation=mask_rotation)
@@ -337,11 +332,14 @@ class CBPComponent:
             Raised when new mask is not a key in the dictionary.
 
         """
-        await self.csc.evt_target.set_write(mask=self.masks.get(mask).name)
+        mask_rotation = self.masks.get(mask).rotation
+        await self.csc.evt_target.set_write(
+            mask=self.masks.get(mask).name, mask_rotation=mask_rotation
+        )
         await self.send_command(
             f"new_msk={self.masks.get(mask).id}", await_terminator=False
         )
-        mask_rotation = self.masks.get(mask).rotation
+
         self.log.debug(f"rotation is {mask_rotation}")
         await self.set_mask_rotation(mask_rotation)
 
@@ -361,10 +359,12 @@ class CBPComponent:
 
         """
         self.assert_in_range("mask_rotation", mask_rotation, 0, 360)
+        await self.get_mask()
         await self.csc.evt_inPosition.set_write(mask_rotation=False)
-        await self.csc.evt_target.set_write(mask_rotation=mask_rotation)
+        await self.csc.evt_target.set_write(mask=self.mask, mask_rotation=mask_rotation)
+
         await self.send_command(f"new_rot={mask_rotation}", await_terminator=False)
-        self.log.debug("Mask rotation command sent)")
+        self.log.debug(f"Mask rotation command sent: {mask_rotation}")
 
     async def check_park(self):
         """Get the park variable from CBP."""

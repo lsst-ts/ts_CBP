@@ -50,6 +50,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.check_standard_state_transitions(
                 enabled_commands=(
                     "changeMask",
+                    "changeMaskRotation",
                     "move",
                     "park",
                     "unpark",
@@ -259,7 +260,30 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 azimuth=0,
                 elevation=0,
                 mask="mask 1",
-                mask_rotation=0,
+                mask_rotation=30.0,
+                focus=0,
+            )
+
+            mask_tel = await self.remote.tel_mask.aget()
+            mask_tel.mask_rotation == pytest.approx(0)
+
+            with self.subTest("Not a mask"):
+                with self.assertRaises(salobj.AckError):
+                    await self.remote.cmd_changeMask.set_start(
+                        mask="6", timeout=STD_TIMEOUT
+                    )
+
+    async def test_changeMaskRotation(self):
+        async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
+            await self.remote.cmd_changeMaskRotation.set_start(
+                mask_rotation=10, timeout=STD_TIMEOUT
+            )
+            await self.assert_next_sample(
+                topic=self.remote.evt_target,
+                azimuth=0,
+                elevation=0,
+                mask="mask 1",
+                mask_rotation=10,
                 focus=0,
             )
 

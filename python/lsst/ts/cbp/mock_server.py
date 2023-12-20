@@ -124,7 +124,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
             (re.compile(r"new_msk=(?P<parameter>[1-5])"), self.do_new_mask),
             (re.compile(r"rot=\?"), self.do_rotation),
             (
-                re.compile(r"new_rot=(?P<parameter>[0-1]?[0-3]?\d?\d?\d)"),
+                re.compile(r"new_rot=(?P<parameter>[0-1]?[0-3]?\d?\.?\d)"),
                 self.do_new_rotation,
             ),
             (
@@ -361,6 +361,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         -------
         str
         """
+        self.log.debug(f"in mock server {rotation}")
         self.set_circular_constrained_position(
             value=float(rotation), actuator=self.encoders.mask_rotate
         )
