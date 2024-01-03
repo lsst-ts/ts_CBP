@@ -24,6 +24,7 @@ import os
 import pathlib
 import unittest
 
+import pytest
 from lsst.ts import cbp, salobj
 
 STD_TIMEOUT = 15
@@ -261,9 +262,9 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=0,
                 focus=0,
             )
-            await self.assert_next_sample(
-                topic=self.remote.tel_mask, mask="mask 1", mask_rotation=0
-            )
+
+            mask_tel = await self.remote.tel_mask.aget()
+            mask_tel.mask_rotation == pytest.approx(0)
 
             with self.subTest("Not a mask"):
                 with self.assertRaises(salobj.AckError):

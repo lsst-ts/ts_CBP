@@ -305,10 +305,10 @@ class CBPComponent:
             Raised when the new value falls outside the accepted range.
         """
         self.assert_in_range("focus", position, 0, 13000)
+        await self.csc.evt_inPosition.set_write(focus=False)
         await self.csc.evt_target.set_write(focus=int(position))
         self.log.debug("Sending new focus position")
         await self.send_command(f"new_foc={int(position)}", await_terminator=False)
-        await self.csc.evt_inPosition.set_write(focus=False)
         self.log.debug("Change focus command sent)")
 
     async def get_mask(self):
@@ -341,6 +341,9 @@ class CBPComponent:
         await self.send_command(
             f"new_msk={self.masks.get(mask).id}", await_terminator=False
         )
+        mask_rotation = self.masks.get(mask).rotation
+        self.log.debug(f"rotation is {mask_rotation}")
+        await self.set_mask_rotation(mask_rotation)
 
     async def set_mask_rotation(self, mask_rotation: float):
         """Set the mask rotation
@@ -358,9 +361,10 @@ class CBPComponent:
 
         """
         self.assert_in_range("mask_rotation", mask_rotation, 0, 360)
+        await self.csc.evt_inPosition.set_write(mask_rotation=False)
         await self.csc.evt_target.set_write(mask_rotation=mask_rotation)
         await self.send_command(f"new_rot={mask_rotation}", await_terminator=False)
-        await self.csc.evt_inPosition.set_write(mask_rotation=False)
+        self.log.debug("Mask rotation command sent)")
 
     async def check_park(self):
         """Get the park variable from CBP."""
