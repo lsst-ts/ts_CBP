@@ -2,6 +2,8 @@
 Version History
 ===============
 
+.. towncrier release notes start
+
 v1.3.0
 ======
 * Use tcpip client class
