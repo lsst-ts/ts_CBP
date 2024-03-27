@@ -180,6 +180,19 @@ class CBPCSC(salobj.ConfigurableCsc):
         await self.component.set_mask(data.mask)
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
 
+    async def do_changeMaskRotation(self, data):
+        """Changes the mask rotation variable and moves the
+        current mask to that rotation value.
+
+        Parameters
+        ----------
+        data : `cmd_changeMaskRotation.DataType`
+
+        """
+        self.assert_enabled("changeMaskRotation")
+        await self.component.set_mask_rotation(data.mask_rotation)
+        await asyncio.wait_for(self.in_position(), self.in_position_timeout)
+
     async def handle_summary_state(self):
         """Handle the summary state."""
         if self.disabled_or_enabled:
