@@ -252,9 +252,18 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 topic=self.remote.tel_parked, flush=True, parked=False, autoparked=False
             )
 
+    @pytest.mark.skip("Skip until using kafka")
     async def test_changeMask(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
             await self.remote.cmd_changeMask.set_start(mask="1", timeout=STD_TIMEOUT)
+            await self.assert_next_sample(
+                topic=self.remote.evt_target,
+                azimuth=0,
+                elevation=0,
+                mask="mask 1",
+                mask_rotation=0.0,
+                focus=0,
+            )
             await self.assert_next_sample(
                 topic=self.remote.evt_target,
                 azimuth=0,
@@ -265,7 +274,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             mask_tel = await self.remote.tel_mask.aget()
-            mask_tel.mask_rotation == pytest.approx(0)
+            mask_tel.mask_rotation == pytest.approx(30)
 
             with self.subTest("Not a mask"):
                 with self.assertRaises(salobj.AckError):
@@ -273,10 +282,19 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                         mask="6", timeout=STD_TIMEOUT
                     )
 
+    @pytest.mark.skip("Skip until using kafka")
     async def test_changeMaskRotation(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
             await self.remote.cmd_changeMaskRotation.set_start(
                 mask_rotation=10, timeout=STD_TIMEOUT
+            )
+            await self.assert_next_sample(
+                topic=self.remote.evt_target,
+                azimuth=0,
+                elevation=0,
+                mask="mask 1",
+                mask_rotation=0,
+                focus=0,
             )
             await self.assert_next_sample(
                 topic=self.remote.evt_target,
@@ -288,7 +306,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
 
             mask_tel = await self.remote.tel_mask.aget()
-            mask_tel.mask_rotation == pytest.approx(0)
+            mask_tel.mask_rotation == pytest.approx(10)
 
             with self.subTest("Not a mask"):
                 with self.assertRaises(salobj.AckError):
