@@ -252,6 +252,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 topic=self.remote.tel_parked, flush=True, parked=False, autoparked=False
             )
 
+    @pytest.mark.skip("Skip until using kafka")
     async def test_changeMask(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
             await self.remote.cmd_changeMask.set_start(mask="1", timeout=STD_TIMEOUT)
@@ -281,6 +282,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                         mask="6", timeout=STD_TIMEOUT
                     )
 
+    @pytest.mark.skip("Skip until using kafka")
     async def test_changeMaskRotation(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
             await self.remote.cmd_changeMaskRotation.set_start(
