@@ -260,12 +260,20 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 azimuth=0,
                 elevation=0,
                 mask="mask 1",
+                mask_rotation=0.0,
+                focus=0,
+            )
+            await self.assert_next_sample(
+                topic=self.remote.evt_target,
+                azimuth=0,
+                elevation=0,
+                mask="mask 1",
                 mask_rotation=30.0,
                 focus=0,
             )
 
             mask_tel = await self.remote.tel_mask.aget()
-            mask_tel.mask_rotation == pytest.approx(0)
+            mask_tel.mask_rotation == pytest.approx(30)
 
             with self.subTest("Not a mask"):
                 with self.assertRaises(salobj.AckError):
@@ -283,12 +291,20 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 azimuth=0,
                 elevation=0,
                 mask="mask 1",
+                mask_rotation=0,
+                focus=0,
+            )
+            await self.assert_next_sample(
+                topic=self.remote.evt_target,
+                azimuth=0,
+                elevation=0,
+                mask="mask 1",
                 mask_rotation=10,
                 focus=0,
             )
 
             mask_tel = await self.remote.tel_mask.aget()
-            mask_tel.mask_rotation == pytest.approx(0)
+            mask_tel.mask_rotation == pytest.approx(10)
 
             with self.subTest("Not a mask"):
                 with self.assertRaises(salobj.AckError):
