@@ -2,6 +2,6 @@
 directory = "doc/news"
 package = "lsst.ts.cbp"
 package_dir = "python"
-filename = "version-history.rst"
+filename = "doc/version-history.rst"
 name = "ts_cbp"
 issue_format = "`{issue} <https://rubinobs.atlassian.net/{issue}>`_"
