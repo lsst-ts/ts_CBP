@@ -4,6 +4,27 @@ Version History
 
 .. towncrier release notes start
 
+ts_cbp v1.4.0 (2024-05-27)
+==========================
+
+Features
+--------
+
+- Add maskRotation command. (`DM-42249 <https://rubinobs.atlassian.net/DM-42249>`_)
+
+
+Bugfixes
+--------
+
+- Update ts-conda-build to 0.4. (`DM-43486 <https://rubinobs.atlassian.net/DM-43486>`_)
+
+
+Improved Documentation
+----------------------
+
+- Add towncrier support. (`DM-43486 <https://rubinobs.atlassian.net/DM-43486>`_)
+
+
 v1.3.0
 ======
 * Use tcpip client class
