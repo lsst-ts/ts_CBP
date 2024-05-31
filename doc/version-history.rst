@@ -4,6 +4,16 @@ Version History
 
 .. towncrier release notes start
 
+ts_cbp v1.4.1 (2024-05-31)
+==========================
+
+Bugfixes
+--------
+
+- Add noarch to Jenkinsfile.conda. (`DM-44417 <https://rubinobs.atlassian.net/DM-44417>`_)
+- Fix two unit tests. (`DM-44417 <https://rubinobs.atlassian.net/DM-44417>`_)
+
+
 ts_cbp v1.4.0 (2024-05-27)
 ==========================
 
