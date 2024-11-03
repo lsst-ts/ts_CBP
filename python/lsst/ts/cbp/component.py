@@ -206,12 +206,14 @@ class CBPComponent:
             await self.client.write_str(msg)
             if await_reply and await_terminator:
                 reply = await self.client.read_str()
+                remove = ":"
             elif await_reply and not await_terminator:
                 reply = await self.client.read(1024)
+                remove = b":"
             else:
                 reply = ":"
             if reply != ":":
-                return reply
+                return reply.strip(remove)
 
     async def connect(self):
         """Create a socket and connect to the CBP's static address and
