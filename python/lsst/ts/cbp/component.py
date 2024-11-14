@@ -84,8 +84,8 @@ class CBPComponent:
         # Conversion from steps to degrees is 186413 steps to one degree
         # 9999 divided by 186413 is approximately 0.053
         # So the value is set to 0.1
-        self.error_tolerance = 0.1
-        self.focus_crosstalk = 0.5
+        self.error_tolerance = 0.2
+        self.focus_crosstalk = 0.6
         self.terminator = "\r\n"
         self.client = None
         self.client_lock = asyncio.Lock()
