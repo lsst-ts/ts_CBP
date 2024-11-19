@@ -24,8 +24,10 @@ __all__ = ["CBPComponent"]
 
 import asyncio
 import logging
+import math
 import types
 
+import numpy as np
 from lsst.ts import tcpip
 
 
@@ -172,8 +174,11 @@ class CBPComponent:
             elevation=abs(self.elevation - self.target.elevation)
             < self.error_tolerance,
             mask=self.mask == self.target.mask,
-            mask_rotation=abs(self.mask_rotation - self.target.mask_rotation)
-            < self.error_tolerance * 5,
+            mask_rotation=1
+            - math.cos(
+                np.deg2rad(self.mask_rotation) - np.deg2rad(self.target.mask_rotation)
+            )
+            < 1e-5,
             focus=abs(self.focus - self.target.focus) < self.focus_crosstalk,
         )
         return did_change
