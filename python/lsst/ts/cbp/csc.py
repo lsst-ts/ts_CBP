@@ -88,7 +88,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.telemetry_task = utils.make_done_future()
         self.telemetry_interval = 0.5
         self.in_position_timeout = 20
-        self.mask_timeout = 90
+        self.mask_timeout = 90  # 20 sec per mask.
         self.log.info("CBP CSC initialized")
 
     async def do_move(self, data):
