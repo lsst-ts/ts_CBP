@@ -87,6 +87,7 @@ class CBPComponent:
         # 9999 divided by 186413 is approximately 0.053
         # So the value is set to 0.1
         self.error_tolerance = 0.1
+        self.rotation_tolerance = 1e-5
         self.focus_crosstalk = 0.5
         self.terminator = "\r\n"
         self.client = None
@@ -178,7 +179,7 @@ class CBPComponent:
             - math.cos(
                 np.deg2rad(self.mask_rotation) - np.deg2rad(self.target.mask_rotation)
             )
-            < 1e-5,
+            < self.rotation_tolerance,
             focus=abs(self.focus - self.target.focus) < self.focus_crosstalk,
         )
         return did_change
