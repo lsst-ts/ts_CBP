@@ -178,7 +178,7 @@ class CBPCSC(salobj.ConfigurableCsc):
 
         """
         self.assert_enabled("changeMask")
-        await self.component.set_mask(data.mask)
+        await self.component.set_mask(str(data.mask))
         await asyncio.wait_for(self.in_position(), self.mask_timeout)
 
     async def do_changeMaskRotation(self, data):
@@ -221,6 +221,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         ----------
         config : `types.SimpleNamespace`
         """
+        self.log.debug("We do configure indeed")
         self.component.configure(config)
 
     @staticmethod

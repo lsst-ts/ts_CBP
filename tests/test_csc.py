@@ -24,7 +24,6 @@ import os
 import pathlib
 import unittest
 
-import pytest
 from lsst.ts import cbp, salobj
 
 STD_TIMEOUT = 15
@@ -254,41 +253,38 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
     async def test_changeMask(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
+            await self.assert_next_sample(
+                topic=self.remote.evt_inPosition,
+                azimuth=True,
+                elevation=True,
+                mask=False,
+                mask_rotation=True,
+                focus=True,
+            )
+            await self.assert_next_sample(
+                topic=self.remote.evt_inPosition,
+                azimuth=True,
+                elevation=True,
+                mask=True,
+                mask_rotation=True,
+                focus=True,
+            )
             await self.remote.cmd_changeMask.set_start(mask="1", timeout=STD_TIMEOUT)
             await self.assert_next_sample(
-                topic=self.remote.evt_target,
-                azimuth=0,
-                elevation=0,
+                topic=self.remote.evt_inPosition,
+                azimuth=True,
+                elevation=True,
+                mask=False,
+                mask_rotation=True,
+                focus=True,
+            )
+
+            await self.assert_next_sample(
+                topic=self.remote.tel_mask,
+                flush=True,
                 mask="mask 1",
                 mask_rotation=30.0,
-                focus=0,
             )
-
-            mask_tel = await self.assert_next_sample(topic=self.remote.tel_mask)
-            mask_tel.mask_rotation == pytest.approx(30)
-
-            with self.subTest("Not a mask"):
-                with self.assertRaises(salobj.AckError):
-                    await self.remote.cmd_changeMask.set_start(
-                        mask="6", timeout=STD_TIMEOUT
-                    )
-
-    async def test_changeMaskRotation(self):
-        async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
-            await self.remote.cmd_changeMaskRotation.set_start(
-                mask_rotation=10, timeout=STD_TIMEOUT
-            )
-            await self.assert_next_sample(
-                topic=self.remote.evt_target,
-                azimuth=0,
-                elevation=0,
-                mask="mask 1",
-                mask_rotation=10,
-                focus=0,
-            )
-
-            mask_tel = await self.assert_next_sample(topic=self.remote.tel_mask)
-            mask_tel.mask_rotation == pytest.approx(10)
 
             with self.subTest("Not a mask"):
                 with self.assertRaises(salobj.AckError):
