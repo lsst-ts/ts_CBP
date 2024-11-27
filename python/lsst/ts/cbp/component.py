@@ -27,7 +27,6 @@ import logging
 import math
 import types
 
-import numpy as np
 from lsst.ts import tcpip
 
 
@@ -177,7 +176,8 @@ class CBPComponent:
             mask=self.mask == self.target.mask,
             mask_rotation=1
             - math.cos(
-                np.deg2rad(self.mask_rotation) - np.deg2rad(self.target.mask_rotation)
+                math.radians(self.mask_rotation)
+                - math.radians(self.target.mask_rotation)
             )
             < self.rotation_tolerance,
             focus=abs(self.focus - self.target.focus) < self.focus_crosstalk,

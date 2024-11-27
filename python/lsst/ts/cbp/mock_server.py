@@ -106,7 +106,6 @@ class MockServer(tcpip.OneClientReadLoopServer):
         self.encoders = Encoders()
         self.park = False
         self.auto_park = False
-        # self.masks_rotation = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         self.movement_reply = ":"
         self.commands = (
             (re.compile(r"az=\?"), self.do_azimuth),
