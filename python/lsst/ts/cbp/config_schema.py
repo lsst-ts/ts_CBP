@@ -28,7 +28,7 @@ CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#
 $id: https://github.com/lsst-ts/ts_CBP/blob/master/schema/CBP.yaml
-title: CBP v1
+title: CBP v2
 description: Schema for CBP configuration files
 type: object
 properties:
@@ -100,15 +100,7 @@ properties:
         type: number
         description: Rotation of mask (degree)
         default: 150
-  encoder_tolerance:
-    description: Encoder error tolerance for in_position event
-    type: number
-    default: 0.1
-  focus_crosstalk:
-    description: Focus encoder crosstalk when moving tolerance
-    type: number
-    default: 0.4
-required: [address, port, mask1, mask2, mask3, mask4, mask5, encoder_tolerance, focus_crosstalk]
+required: [address, port, mask1, mask2, mask3, mask4, mask5]
 additionalProperties: false
 """
 )

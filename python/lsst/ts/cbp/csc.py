@@ -88,6 +88,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.telemetry_task = utils.make_done_future()
         self.telemetry_interval = 0.5
         self.in_position_timeout = 20
+        self.mask_timeout = 90  # 20 sec per mask.
         self.log.info("CBP CSC initialized")
 
     async def do_move(self, data):
@@ -177,8 +178,8 @@ class CBPCSC(salobj.ConfigurableCsc):
 
         """
         self.assert_enabled("changeMask")
-        await self.component.set_mask(data.mask)
-        await asyncio.wait_for(self.in_position(), self.in_position_timeout)
+        await self.component.set_mask(str(data.mask))
+        await asyncio.wait_for(self.in_position(), self.mask_timeout)
 
     async def do_changeMaskRotation(self, data):
         """Changes the mask rotation variable and moves the
@@ -191,7 +192,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.assert_enabled("changeMaskRotation")
         await self.component.set_mask_rotation(data.mask_rotation)
-        await asyncio.wait_for(self.in_position(), self.in_position_timeout)
+        await asyncio.wait_for(self.in_position(), self.mask_timeout)
 
     async def handle_summary_state(self):
         """Handle the summary state."""
@@ -220,6 +221,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         ----------
         config : `types.SimpleNamespace`
         """
+        self.log.debug("We do configure indeed")
         self.component.configure(config)
 
     @staticmethod

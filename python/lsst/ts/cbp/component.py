@@ -24,6 +24,7 @@ __all__ = ["CBPComponent"]
 
 import asyncio
 import logging
+import math
 import types
 
 from lsst.ts import tcpip
@@ -85,6 +86,7 @@ class CBPComponent:
         # 9999 divided by 186413 is approximately 0.053
         # So the value is set to 0.1
         self.error_tolerance = 0.1
+        self.rotation_tolerance = 1e-5
         self.focus_crosstalk = 0.5
         self.terminator = "\r\n"
         self.client = None
@@ -172,8 +174,12 @@ class CBPComponent:
             elevation=abs(self.elevation - self.target.elevation)
             < self.error_tolerance,
             mask=self.mask == self.target.mask,
-            mask_rotation=abs(self.mask_rotation - self.target.mask_rotation)
-            < self.error_tolerance * 5,
+            mask_rotation=1
+            - math.cos(
+                math.radians(self.mask_rotation)
+                - math.radians(self.target.mask_rotation)
+            )
+            < self.rotation_tolerance,
             focus=abs(self.focus - self.target.focus) < self.focus_crosstalk,
         )
         return did_change
@@ -317,7 +323,9 @@ class CBPComponent:
         mask = str(int(float(await self.send_command("msk=?"))))
         mask = self.masks.get(mask).name
         mask_rotation = float(await self.send_command("rot=?", log=False))
+        self.log.debug(f"get_mask: {mask, mask_rotation}")
         await self.csc.tel_mask.set_write(mask=mask, mask_rotation=mask_rotation)
+        self.log.debug(f"tel_mask in get_mask: {self.csc.tel_mask.data}")
 
     async def set_mask(self, mask: str):
         """Set the mask value
@@ -334,16 +342,20 @@ class CBPComponent:
             Raised when new mask is not a key in the dictionary.
 
         """
-        mask_rotation = self.masks.get(mask).rotation
-        await self.csc.evt_target.set_write(
-            mask=self.masks.get(mask).name, mask_rotation=mask_rotation
-        )
+        if mask not in list(self.masks.keys()):
+            raise ValueError(f"{mask} not in the allowed list of masks")
+        await self.csc.evt_inPosition.set_write(mask=False)
+        await self.csc.evt_target.set_write(mask=self.masks.get(mask).name)
         await self.send_command(
             f"new_msk={self.masks.get(mask).id}", await_terminator=False
         )
 
-        self.log.debug(f"rotation is {mask_rotation}")
-        await self.set_mask_rotation(mask_rotation)
+        init_mask_rotation = self.masks.get(mask).rotation
+        self.log.debug(init_mask_rotation)
+        await self.set_mask_rotation(mask_rotation=float(init_mask_rotation))
+        self.log.debug(
+            f"Mask changed to {mask} with initial rotation of {init_mask_rotation}"
+        )
 
     async def set_mask_rotation(self, mask_rotation: float):
         """Set the mask rotation
@@ -353,7 +365,6 @@ class CBPComponent:
         mask_rotation : `float`
             The mask_rotation value that will be sent.
 
-
         Raises
         ------
         ValueError
@@ -361,10 +372,10 @@ class CBPComponent:
 
         """
         self.assert_in_range("mask_rotation", mask_rotation, 0, 360)
-        await self.get_mask()
         await self.csc.evt_inPosition.set_write(mask_rotation=False)
-        await self.csc.evt_target.set_write(mask=self.mask, mask_rotation=mask_rotation)
+        await self.csc.evt_target.set_write(mask_rotation=mask_rotation)
 
+        self.log.debug(f"target: {self.target}")
         await self.send_command(f"new_rot={mask_rotation}", await_terminator=False)
         self.log.debug(f"Mask rotation command sent: {mask_rotation}")
 
@@ -427,8 +438,6 @@ class CBPComponent:
         self.masks["4"].rotation = config.mask4["rotation"]
         self.masks["5"].name = config.mask5["name"]
         self.masks["5"].rotation = config.mask5["rotation"]
-        self.error_tolerance = config.encoder_tolerance
-        self.focus_crosstalk = config.focus_crosstalk
 
     async def update_status(self):
         """Update the status."""

@@ -1,0 +1,1 @@
+Modified the inPosition calculation for mask rotation to deal with 0 and 360. Also increased the timeout for the mask change.

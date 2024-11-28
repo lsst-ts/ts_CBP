@@ -106,7 +106,6 @@ class MockServer(tcpip.OneClientReadLoopServer):
         self.encoders = Encoders()
         self.park = False
         self.auto_park = False
-        self.masks_rotation = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         self.movement_reply = ":"
         self.commands = (
             (re.compile(r"az=\?"), self.do_azimuth),
@@ -245,6 +244,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         """
         constrained_value = min(max(0, value), 360)
         self.log.info(f"constrained_value: {constrained_value}")
+        self.log.debug(f"from actuator {actuator.set_position(constrained_value)}")
         actuator.set_position(constrained_value)
 
     async def do_azimuth(self):
@@ -323,6 +323,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         -------
         str
         """
+        self.log.debug(f"mask_select: {self.encoders.mask_select.position()}")
         return f"{self.encoders.mask_select.position()}"
 
     async def do_new_mask(self, mask):
@@ -348,6 +349,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         -------
         str
         """
+        self.log.debug(f"do_rotation {self.encoders.mask_rotate.position()}")
         return f"{self.encoders.mask_rotate.position()}"
 
     async def do_new_rotation(self, rotation):
