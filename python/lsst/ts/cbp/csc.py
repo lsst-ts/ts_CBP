@@ -101,6 +101,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.log.debug("Begin move")
         self.assert_enabled("move")
+        await self.evt_inPosition.set_write(azimuth=False, elevation=False)
         await asyncio.gather(
             self.component.move_elevation(data.elevation),
             self.component.move_azimuth(data.azimuth),
@@ -200,6 +201,7 @@ class CBPCSC(salobj.ConfigurableCsc):
             if self.simulation_mode and self.simulator is None:
                 self.simulator = mock_server.MockServer()
                 await self.simulator.start_task
+                self.component.host = self.simulator.host
                 self.component.port = self.simulator.port
             if not self.component.connected:
                 await self.component.connect()

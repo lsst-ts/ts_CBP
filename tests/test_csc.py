@@ -83,20 +83,20 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             )
             await self.assert_next_sample(
                 topic=self.remote.evt_inPosition,
-                azimuth=True,
-                elevation=False,
-                mask=True,
-                mask_rotation=True,
-                focus=True,
-            )
-            await self.assert_next_sample(
-                topic=self.remote.evt_inPosition,
                 azimuth=False,
                 elevation=False,
                 mask=True,
                 mask_rotation=True,
                 focus=True,
             )
+            # await self.assert_next_sample(
+            #     topic=self.remote.evt_inPosition,
+            #     azimuth=False,
+            #     elevation=False,
+            #     mask=True,
+            #     mask_rotation=True,
+            #     focus=True,
+            # )
             await self.assert_next_sample(
                 topic=self.remote.evt_inPosition,
                 azimuth=True,
@@ -129,14 +129,6 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             with self.subTest("Test moving to the same position."):
                 await self.remote.cmd_move.set_start(azimuth=20, elevation=-50)
-                await self.assert_next_sample(
-                    topic=self.remote.evt_inPosition,
-                    azimuth=True,
-                    elevation=False,
-                    mask=True,
-                    mask_rotation=True,
-                    focus=True,
-                )
                 await self.assert_next_sample(
                     topic=self.remote.evt_inPosition,
                     azimuth=False,

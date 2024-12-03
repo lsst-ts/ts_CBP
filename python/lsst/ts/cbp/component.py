@@ -85,7 +85,7 @@ class CBPComponent:
         # Conversion from steps to degrees is 186413 steps to one degree
         # 9999 divided by 186413 is approximately 0.053
         # So the value is set to 0.1
-        self.error_tolerance = 0.1
+        self.error_tolerance = 0.15
         self.rotation_tolerance = 1e-5
         self.focus_crosstalk = 0.5
         self.terminator = "\r\n"
@@ -258,7 +258,6 @@ class CBPComponent:
 
         """
         self.assert_in_range("azimuth", position, -45, 45)
-        await self.csc.evt_inPosition.set_write(azimuth=False)
         await self.csc.evt_target.set_write(azimuth=position)
         await self.send_command(f"new_az={position}", await_terminator=False)
 
@@ -286,7 +285,6 @@ class CBPComponent:
 
         """
         self.assert_in_range("elevation", position, -69, 45)
-        await self.csc.evt_inPosition.set_write(elevation=False)
         await self.csc.evt_target.set_write(elevation=position)
         await self.send_command(f"new_alt={position}", await_terminator=False)
         self.log.debug("move_elevation command sent")
