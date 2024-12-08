@@ -130,7 +130,8 @@ class CBPCSC(salobj.ConfigurableCsc):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.log.exception("Something went wrong")
+                self.log.exception("Telemetry loop failed")
+                await self.fault()
 
             self.log.debug("Telemetry loop cycle completed")
             await asyncio.sleep(self.telemetry_interval)
@@ -204,7 +205,10 @@ class CBPCSC(salobj.ConfigurableCsc):
                 self.component.host = self.simulator.host
                 self.component.port = self.simulator.port
             if not self.component.connected:
-                await self.component.connect()
+                try:
+                    await self.component.connect()
+                except Exception:
+                    await self.fault()
             if self.telemetry_task.done():
                 self.telemetry_task = asyncio.create_task(self.telemetry())
             if self.component.parked:

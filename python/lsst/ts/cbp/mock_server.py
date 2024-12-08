@@ -22,8 +22,10 @@
 #
 __all__ = ["Encoders", "MockServer"]
 
+import asyncio
 import enum
 import logging
+import random
 import re
 
 from lsst.ts import simactuators, tcpip
@@ -213,7 +215,15 @@ class MockServer(tcpip.OneClientReadLoopServer):
                     self.log.exception(f"Command {line} failed unexpectedly")
                 else:
                     if msg is not None:
-                        await self.write_str(msg)
+                        bad_connection = True
+                        while bad_connection:
+                            bad_connection = random.choices([True, False], [0.3, 0.7])[
+                                0
+                            ]
+                            self.log.debug(f"{bad_connection=}")
+                            if not bad_connection:
+                                await self.write_str(msg)
+                            await asyncio.sleep(0.1)
                 break
 
     def set_constrained_position(self, value, actuator):

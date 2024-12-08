@@ -211,10 +211,29 @@ class CBPComponent:
         async with self.client_lock:
             await self.client.write_str(msg)
             if await_reply and await_terminator:
-                reply = await self.client.read_str()
+                for _ in range(10):
+                    try:
+                        reply = await self.client.read_str()
+                    except Exception:
+                        self.log.exception("Reply not recieved")
+                    if reply:
+                        self.log.debug(reply)
+                        break
+                    else:
+                        continue
                 remove = ":"
             elif await_reply and not await_terminator:
-                reply = await self.client.read(1024)
+                for _ in range(10):
+                    try:
+
+                        reply = await self.client.read(1024)
+                    except Exception:
+                        self.log.exception("Reply not recieved.")
+                    if reply:
+                        self.log.debug(reply)
+                        break
+                    else:
+                        continue
                 remove = b":"
             else:
                 reply = ":"
