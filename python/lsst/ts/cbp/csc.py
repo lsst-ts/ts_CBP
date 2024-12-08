@@ -131,7 +131,7 @@ class CBPCSC(salobj.ConfigurableCsc):
                 raise
             except Exception:
                 self.log.exception("Telemetry loop failed")
-                await self.fault()
+                await self.fault(code=2, report="Telemetry loop failed.")
 
             self.log.debug("Telemetry loop cycle completed")
             await asyncio.sleep(self.telemetry_interval)
@@ -208,7 +208,7 @@ class CBPCSC(salobj.ConfigurableCsc):
                 try:
                     await self.component.connect()
                 except Exception:
-                    await self.fault()
+                    await self.fault(code=1, report="Connection failed.")
             if self.telemetry_task.done():
                 self.telemetry_task = asyncio.create_task(self.telemetry())
             if self.component.parked:
