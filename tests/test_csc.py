@@ -299,6 +299,12 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 focus=False,
             )
 
+    async def test_fault(self):
+        async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
+            await self.assert_next_summary_state(state=salobj.State.ENABLED)
+            await self.csc.simulator.close()
+            await self.assert_next_summary_state(state=salobj.State.FAULT)
+
 
 if __name__ == "__main__":
     unittest.main()

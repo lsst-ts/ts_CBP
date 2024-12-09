@@ -216,6 +216,7 @@ class CBPComponent:
                         reply = await self.client.read_str()
                     except Exception:
                         self.log.exception("Reply not recieved")
+                        await asyncio.sleep(0.2)
                     if reply:
                         self.log.debug(reply)
                         break
@@ -229,6 +230,7 @@ class CBPComponent:
                         reply = await self.client.read(1024)
                     except Exception:
                         self.log.exception("Reply not recieved.")
+                        await asyncio.sleep(0.2)
                     if reply:
                         self.log.debug(reply)
                         break
@@ -245,8 +247,12 @@ class CBPComponent:
         designated port.
 
         """
-        self.client = tcpip.Client(host=self.host, port=self.port, log=self.csc.log)
-        await self.client.start_task
+        try:
+            self.client = tcpip.Client(host=self.host, port=self.port, log=self.csc.log)
+            await self.client.start_task
+        except Exception:
+            self.log.exception("Connection failed.")
+            await self.fault(code=2, report="Connection failed.")
 
     async def disconnect(self):
         """Disconnect from the tcp socket.

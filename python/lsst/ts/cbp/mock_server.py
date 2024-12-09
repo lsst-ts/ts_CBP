@@ -223,7 +223,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
                             self.log.debug(f"{bad_connection=}")
                             if not bad_connection:
                                 await self.write_str(msg)
-                            await asyncio.sleep(0.1)
+                            await asyncio.sleep(0.2)
                 break
 
     def set_constrained_position(self, value, actuator):
