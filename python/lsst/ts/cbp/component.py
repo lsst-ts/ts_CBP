@@ -29,6 +29,8 @@ import types
 
 from lsst.ts import tcpip
 
+from .wizardry import NUMBER_OF_RETRIES
+
 
 class CBPComponent:
     """This class is for implementing the CBP component.
@@ -210,33 +212,34 @@ class CBPComponent:
         """
         async with self.client_lock:
             await self.client.write_str(msg)
-            if await_reply and await_terminator:
-                for _ in range(10):
-                    try:
-                        reply = await self.client.read_str()
-                    except Exception:
-                        self.log.exception("Reply not recieved")
-                        await asyncio.sleep(0.2)
-                    if reply:
-                        self.log.debug(reply)
-                        break
-                    else:
-                        continue
-                remove = ":"
-            elif await_reply and not await_terminator:
-                for _ in range(10):
-                    try:
+            if await_reply:
+                if await_terminator:
+                    for _ in range(NUMBER_OF_RETRIES):
+                        try:
+                            reply = await self.client.read_str()
+                        except Exception:
+                            self.log.exception("Reply not recieved")
+                            await asyncio.sleep(0.2)
+                        if reply:
+                            self.log.debug(reply)
+                            break
+                        else:
+                            continue
+                    remove = ":"
+                else:
+                    for _ in range(NUMBER_OF_RETRIES):
+                        try:
 
-                        reply = await self.client.read(1024)
-                    except Exception:
-                        self.log.exception("Reply not recieved.")
-                        await asyncio.sleep(0.2)
-                    if reply:
-                        self.log.debug(reply)
-                        break
-                    else:
-                        continue
-                remove = b":"
+                            reply = await self.client.read(1024)
+                        except Exception:
+                            self.log.exception("Reply not recieved.")
+                            await asyncio.sleep(0.2)
+                        if reply:
+                            self.log.debug(reply)
+                            break
+                        else:
+                            continue
+                    remove = b":"
             else:
                 reply = ":"
             if reply != ":":
