@@ -1,1 +1,0 @@
-Set the target event with current positions before starting telemetry loop to avoid inPosition not being set properly.

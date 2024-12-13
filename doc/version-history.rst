@@ -4,6 +4,26 @@ Version History
 
 .. towncrier release notes start
 
+ts_cbp v1.5.0 (2024-12-13)
+==========================
+
+Features
+--------
+
+- Add retry loop to client for improved responseness under spotty connections. (`DM-47555 <https://rubinobs.atlassian.net/DM-47555>`_)
+- Set azimuth and elevation to false at the same time during move command to publish one less inPosition event. (`DM-47555 <https://rubinobs.atlassian.net/DM-47555>`_)
+
+
+Bugfixes
+--------
+
+- Remove colon from reply. (`DM-47349 <https://rubinobs.atlassian.net/DM-47349>`_)
+- Set the target event with current positions before starting telemetry loop to avoid inPosition not being set properly. (`DM-47555 <https://rubinobs.atlassian.net/DM-47555>`_)
+- Go to fault state if connect call failed. (`DM-47555 <https://rubinobs.atlassian.net/DM-47555>`_)
+- Set component host to simulator host when in simulation mode. (`DM-47555 <https://rubinobs.atlassian.net/DM-47555>`_)
+- Modified the inPosition calculation for mask rotation to deal with 0 and 360. Also increased the timeout for the mask change. (`DM-47638 <https://rubinobs.atlassian.net/DM-47638>`_)
+
+
 ts_cbp v1.4.1 (2024-05-31)
 ==========================
 
