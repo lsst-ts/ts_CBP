@@ -117,14 +117,6 @@ class CBPCSC(salobj.ConfigurableCsc):
             try:
                 self.log.debug("Begin sending telemetry")
                 await self.component.update_status()
-                # if not self.evt_target.has_data:
-                #     await self.evt_target.set_write(
-                #         azimuth=self.component.azimuth,
-                #         elevation=self.component.elevation,
-                #         focus=self.component.focus,
-                #         mask=self.component.mask,
-                #         mask_rotation=self.component.mask_rotation,
-                #     )
                 if self.component.status.panic:
                     await self.fault(
                         ErrorCode.PANICKED,
@@ -219,6 +211,9 @@ class CBPCSC(salobj.ConfigurableCsc):
                     self.log.exception("Failed to connect.")
                     await self.fault(ErrorCode.CONNECTION_FAILED, "Failed to connect.")
                     return
+                # Get the status so that the target is updated
+                # when transitioning from fault state so that
+                # the inPosition event is set to True initially
                 await self.component.update_status()
                 await self.evt_target.set_write(
                     azimuth=self.component.azimuth,
