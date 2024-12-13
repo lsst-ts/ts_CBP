@@ -1,1 +1,0 @@
-Set azimuth and elevation to false at the same time during move command to publish one less inPosition event.
