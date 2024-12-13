@@ -31,4 +31,6 @@ except ImportError:
 from .component import *
 from .config_schema import *
 from .csc import *
+from .enums import *
 from .mock_server import *
+from .wizardry import *

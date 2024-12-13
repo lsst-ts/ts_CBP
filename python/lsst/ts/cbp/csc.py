@@ -26,6 +26,7 @@ from lsst.ts import salobj, utils
 
 from . import __version__, component, mock_server
 from .config_schema import CONFIG_SCHEMA
+from .enums import ErrorCode
 
 __all__ = ["CBPCSC", "execute_csc"]
 
@@ -101,6 +102,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.log.debug("Begin move")
         self.assert_enabled("move")
+        await self.evt_inPosition.set_write(azimuth=False, elevation=False)
         await asyncio.gather(
             self.component.move_elevation(data.elevation),
             self.component.move_azimuth(data.azimuth),
@@ -115,21 +117,21 @@ class CBPCSC(salobj.ConfigurableCsc):
             try:
                 self.log.debug("Begin sending telemetry")
                 await self.component.update_status()
-                if not self.evt_target.has_data:
-                    await self.evt_target.set_write(
-                        azimuth=self.component.azimuth,
-                        elevation=self.component.elevation,
-                        focus=self.component.focus,
-                        mask=self.component.mask,
-                        mask_rotation=self.component.mask_rotation,
-                    )
                 if self.component.status.panic:
-                    self.fault(1, "CBP Panicked. Check hardware and reset device.")
+                    await self.fault(
+                        ErrorCode.PANICKED,
+                        "CBP Panicked. Check hardware and reset device.",
+                    )
                     return
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.log.exception("Something went wrong")
+                self.log.exception("Telemetry loop failed")
+                await self.fault(
+                    code=ErrorCode.TELEMETRY_LOOP_FAILED,
+                    report="Telemetry loop failed.",
+                )
+                return
 
             self.log.debug("Telemetry loop cycle completed")
             await asyncio.sleep(self.telemetry_interval)
@@ -200,9 +202,26 @@ class CBPCSC(salobj.ConfigurableCsc):
             if self.simulation_mode and self.simulator is None:
                 self.simulator = mock_server.MockServer()
                 await self.simulator.start_task
+                self.component.host = self.simulator.host
                 self.component.port = self.simulator.port
             if not self.component.connected:
-                await self.component.connect()
+                try:
+                    await self.component.connect()
+                except Exception:
+                    self.log.exception("Failed to connect.")
+                    await self.fault(ErrorCode.CONNECTION_FAILED, "Failed to connect.")
+                    return
+                # Get the status so that the target is updated
+                # when transitioning from fault state so that
+                # the inPosition event is set to True initially
+                await self.component.update_status()
+                await self.evt_target.set_write(
+                    azimuth=self.component.azimuth,
+                    elevation=self.component.elevation,
+                    focus=self.component.focus,
+                    mask=self.component.mask,
+                    mask_rotation=self.component.mask_rotation,
+                )
             if self.telemetry_task.done():
                 self.telemetry_task = asyncio.create_task(self.telemetry())
             if self.component.parked:
