@@ -146,6 +146,12 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                     focus=True,
                 )
 
+    async def test_assert_unparked(self):
+        async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
+            await self.remote.cmd_park.set_start()
+            with self.assertRaises(salobj.AckError):
+                await self.remote.cmd_move.set_start(azimuth=20, elevation=0)
+
     async def test_telemetry(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
             await self.assert_next_sample(

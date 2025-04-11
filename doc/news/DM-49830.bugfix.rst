@@ -1,0 +1,1 @@
+Added assert_unparked method that rejects commands if the CBP has been parked but not unparked yet.

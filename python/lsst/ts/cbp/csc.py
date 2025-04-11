@@ -92,6 +92,12 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.mask_timeout = 90  # 20 sec per mask.
         self.log.info("CBP CSC initialized")
 
+    def assert_unparked(self):
+        if self.component.parked:
+            raise salobj.ExpectedError(
+                "CBP still parked. Please call the unpark command."
+            )
+
     async def do_move(self, data):
         """Move the CBP mount to a specified position.
 
@@ -102,6 +108,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.log.debug("Begin move")
         self.assert_enabled("move")
+        self.assert_unparked()
         await self.evt_inPosition.set_write(azimuth=False, elevation=False)
         await asyncio.gather(
             self.component.move_elevation(data.elevation),
@@ -145,6 +152,7 @@ class CBPCSC(salobj.ConfigurableCsc):
 
         """
         self.assert_enabled("setFocus")
+        self.assert_unparked()
         await self.component.change_focus(data.focus)
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
 
@@ -180,6 +188,7 @@ class CBPCSC(salobj.ConfigurableCsc):
 
         """
         self.assert_enabled("changeMask")
+        self.assert_unparked()
         await self.component.set_mask(str(data.mask))
         await asyncio.wait_for(self.in_position(), self.mask_timeout)
 
@@ -193,6 +202,7 @@ class CBPCSC(salobj.ConfigurableCsc):
 
         """
         self.assert_enabled("changeMaskRotation")
+        self.assert_unparked()
         await self.component.set_mask_rotation(data.mask_rotation)
         await asyncio.wait_for(self.in_position(), self.mask_timeout)
 
