@@ -4,6 +4,15 @@ Version History
 
 .. towncrier release notes start
 
+ts_cbp v1.5.1 (2025-04-14)
+==========================
+
+Bugfixes
+--------
+
+- Added assert_unparked method that rejects commands if the CBP has been parked but not unparked yet. (`DM-49830 <https://rubinobs.atlassian.net/DM-49830>`_)
+
+
 ts_cbp v1.5.0 (2024-12-13)
 ==========================
 
