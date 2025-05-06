@@ -23,6 +23,7 @@
 __all__ = ["CBPComponent"]
 
 import asyncio
+import builtins
 import logging
 import math
 import types
@@ -210,36 +211,37 @@ class CBPComponent:
         reply : `str`
             The reply to the command sent.
         """
+        command_name: str = ""
+        kwargs: dict = {}
+        reply = ":"
         async with self.client_lock:
             await self.client.write_str(msg)
             if await_reply:
                 if await_terminator:
-                    for _ in range(NUMBER_OF_RETRIES):
-                        try:
-                            reply = await self.client.read_str()
-                        except Exception:
-                            self.log.exception("Reply not recieved")
-                            await asyncio.sleep(0.2)
-                        if reply:
-                            self.log.debug(reply)
-                            break
-                        else:
-                            continue
-                    remove = ":"
+                    command_name = "read_str"
                 else:
-                    for _ in range(NUMBER_OF_RETRIES):
-                        try:
-
-                            reply = await self.client.read(1024)
-                        except Exception:
-                            self.log.exception("Reply not recieved.")
-                            await asyncio.sleep(0.2)
-                        if reply:
-                            self.log.debug(reply)
-                            break
-                        else:
-                            continue
-                    remove = b":"
+                    command_name = "read"
+                    kwargs["n"] = 1024
+                for _ in range(NUMBER_OF_RETRIES):
+                    try:
+                        reply: bytes | str = await getattr(self.client, command_name)(
+                            **kwargs
+                        )
+                    except Exception:
+                        self.log.exception("Reply not recieved.")
+                        await asyncio.sleep(5)
+                    if reply:
+                        self.log.debug(reply)
+                        break
+                    else:
+                        continue
+                match type(reply):
+                    case builtins.bytes:
+                        remove = b":"
+                    case builtins.str:
+                        remove = ":"
+                    case _:
+                        raise RuntimeError("Unexpected reply type.")
             else:
                 reply = ":"
             if reply != ":":
