@@ -106,7 +106,6 @@ class CBPCSC(salobj.ConfigurableCsc):
         data : `cmd_move.DataType`
 
         """
-        self.log.debug("Begin move")
         self.assert_enabled("move")
         self.assert_unparked()
         await self.evt_inPosition.set_write(azimuth=False, elevation=False)
@@ -114,8 +113,7 @@ class CBPCSC(salobj.ConfigurableCsc):
             self.component.move_elevation(data.elevation),
             self.component.move_azimuth(data.azimuth),
         )
-
-        self.log.debug("Waiting for in-position")
+        await self.cmd_move.ack_in_progress(data, self.in_position_timeout)
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
 
     async def telemetry(self):
@@ -154,6 +152,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.assert_enabled("setFocus")
         self.assert_unparked()
         await self.component.change_focus(data.focus)
+        await self.cmd_setFocus.ack_in_progress(data, self.in_position_timeout)
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
 
     async def do_park(self, data):
@@ -166,6 +165,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.assert_enabled("park")
         await self.component.set_park()
+        await self.cmd_park.ack_in_progress(data, timeout=self.in_position_timeout)
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
 
     async def do_unpark(self, data):
@@ -177,6 +177,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.assert_enabled("unpark")
         await self.component.set_unpark()
+        await self.cmd_unpark.ack_in_progress(data, self.in_position_timeout)
         await asyncio.wait_for(self.in_position(), self.in_position_timeout)
 
     async def do_changeMask(self, data):
@@ -190,6 +191,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.assert_enabled("changeMask")
         self.assert_unparked()
         await self.component.set_mask(str(data.mask))
+        await self.cmd_changeMask.ack_in_progress(data, self.mask_timeout)
         await asyncio.wait_for(self.in_position(), self.mask_timeout)
 
     async def do_changeMaskRotation(self, data):
@@ -204,6 +206,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.assert_enabled("changeMaskRotation")
         self.assert_unparked()
         await self.component.set_mask_rotation(data.mask_rotation)
+        await self.cmd_changeMaskRotation.ack_in_progress(data, self.mask_timeout)
         await asyncio.wait_for(self.in_position(), self.mask_timeout)
 
     async def handle_summary_state(self):
