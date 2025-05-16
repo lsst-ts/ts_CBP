@@ -4,6 +4,22 @@ Version History
 
 .. towncrier release notes start
 
+v1.5.2 (2025-05-16)
+===================
+
+Performance Enhancement
+-----------------------
+
+- Added ack_in_progress calls for long running commands. (`DM-50648 <https://rubinobs.atlassian.net//browse/DM-50648>`_)
+- Increased wait time between message retries. (`DM-50650 <https://rubinobs.atlassian.net//browse/DM-50650>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Switched to ts-xml from ts-idl in conda recipe. (`DM-50650 <https://rubinobs.atlassian.net//browse/DM-50650>`_)
+
+
 ts_cbp v1.5.1 (2025-04-14)
 ==========================
 
