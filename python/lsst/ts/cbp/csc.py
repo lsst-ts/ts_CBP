@@ -118,9 +118,9 @@ class CBPCSC(salobj.ConfigurableCsc):
 
     async def telemetry(self):
         """Publish the updated telemetry."""
+        self.log.debug("Begin sending telemetry")
         while True:
             try:
-                self.log.debug("Begin sending telemetry")
                 await self.component.update_status()
                 if self.component.status.panic:
                     await self.fault(

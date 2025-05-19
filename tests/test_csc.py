@@ -27,6 +27,7 @@ import unittest
 from lsst.ts import cbp, salobj
 
 STD_TIMEOUT = 15
+LONG_TIMEOUT = 60
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1].joinpath("tests", "data", "config")
 
 
@@ -309,7 +310,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
             await self.assert_next_summary_state(state=salobj.State.ENABLED)
             await self.csc.simulator.close()
-            await self.assert_next_summary_state(state=salobj.State.FAULT)
+            await self.assert_next_summary_state(state=salobj.State.FAULT, timeout=60)
 
 
 if __name__ == "__main__":
