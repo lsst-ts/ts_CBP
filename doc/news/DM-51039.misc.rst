@@ -1,0 +1,1 @@
+Updated conda recipe to cleanup unneeded packages and version setuptools and setuptools-scm properly.
