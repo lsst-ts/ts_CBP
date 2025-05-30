@@ -213,7 +213,7 @@ class CBPComponent:
         """
         command_name: str = ""
         kwargs: dict = {}
-        reply = ":"
+        reply = None
         async with self.client_lock:
             await self.client.write_str(msg)
             if await_reply:
@@ -228,7 +228,7 @@ class CBPComponent:
                             **kwargs
                         )
                     except Exception:
-                        self.log.exception("Reply not recieved.")
+                        self.log.exception("Reply not recieved. Waiting 5 seconds.")
                         await asyncio.sleep(5)
                     if reply:
                         self.log.debug(reply)
