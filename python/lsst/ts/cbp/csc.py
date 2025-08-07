@@ -120,6 +120,11 @@ class CBPCSC(salobj.ConfigurableCsc):
         """Publish the updated telemetry."""
         self.log.debug("Begin sending telemetry")
         while True:
+            if not self.component.connected and self.component.should_be_connected:
+                await self.fault(
+                    ErrorCode.CONNECTION_FAILED, report="Lost connection to controller."
+                )
+                return
             try:
                 await self.component.update_status()
                 if self.component.status.panic:
