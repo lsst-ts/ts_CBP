@@ -20,7 +20,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-import os
 import pathlib
 import unittest
 
@@ -32,9 +31,6 @@ TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1].joinpath("tests", "data", "c
 
 
 class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        os.environ["LSST_SITE"] = "cbp"
-        return super().setUp()
 
     def basic_make_csc(
         self, initial_state, config_dir=None, simulation_mode=1, **kwargs
@@ -311,6 +307,11 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.assert_next_summary_state(state=salobj.State.ENABLED)
             await self.csc.simulator.close()
             await self.assert_next_summary_state(state=salobj.State.FAULT, timeout=60)
+            await self.assert_next_sample(self.remote.evt_errorCode)
+            await self.assert_next_sample(
+                self.remote.evt_errorCode,
+                errorCode=cbp.enums.ErrorCode.CONNECTION_FAILED,
+            )
 
 
 if __name__ == "__main__":

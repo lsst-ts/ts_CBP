@@ -29,6 +29,7 @@ import math
 import types
 
 from lsst.ts import tcpip
+from lsst.ts.cbp.enums import ErrorCode
 
 from .wizardry import NUMBER_OF_RETRIES
 
@@ -72,6 +73,7 @@ class CBPComponent:
     The underlying API is built on :term:`DMC`.
     """
 
+    # TODO: OSW-843: Decouple CSC from component.
     def __init__(self, csc, log=None):
         self.csc = csc
         # Create a logger if none were passed during the instantiation of
@@ -91,18 +93,19 @@ class CBPComponent:
         self.error_tolerance = 0.15
         self.rotation_tolerance = 1e-5
         self.focus_crosstalk = 0.5
+        self.client = tcpip.Client(host="", port=None, log=self.log)
         self.terminator = "\r\n"
-        self.client = None
         self.client_lock = asyncio.Lock()
         self.generate_mask_info()
         self.log.info("CBP component initialized")
 
     @property
     def connected(self):
-        if self.client is not None:
-            return self.client.connected
-        else:
-            return False
+        return self.client.connected
+
+    @property
+    def should_be_connected(self):
+        return self.client.should_be_connected
 
     @property
     def target(self):
@@ -227,6 +230,10 @@ class CBPComponent:
                         reply: bytes | str = await getattr(self.client, command_name)(
                             **kwargs
                         )
+                    except ConnectionError:
+                        self.log.exception("Lost connection.")
+                        await self.csc.fault(code=ErrorCode.CONNECTION_FAILED, report="Lost Connection")
+                        return
                     except Exception:
                         self.log.exception("Reply not recieved. Waiting 5 seconds.")
                         await asyncio.sleep(5)
@@ -257,16 +264,15 @@ class CBPComponent:
             await self.client.start_task
         except Exception:
             self.log.exception("Connection failed.")
-            await self.fault(code=2, report="Connection failed.")
+            await self.csc.fault(code=ErrorCode.CONNECTION_FAILED, report="Connection failed.")
 
     async def disconnect(self):
         """Disconnect from the tcp socket.
 
         Safe to call even if already disconnected.
         """
-        if self.client is not None:
-            await self.client.close()
-            self.client = None
+        await self.client.close()
+        self.client = tcpip.Client(host="", port=None, log=self.log)
 
     async def get_azimuth(self):
         """Get the azimuth value."""
