@@ -31,10 +31,7 @@ TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1].joinpath("tests", "data", "c
 
 
 class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
-
-    def basic_make_csc(
-        self, initial_state, config_dir=None, simulation_mode=1, **kwargs
-    ):
+    def basic_make_csc(self, initial_state, config_dir=None, simulation_mode=1, **kwargs):
         return cbp.csc.CBPCSC(
             initial_state=initial_state,
             simulation_mode=simulation_mode,
@@ -75,9 +72,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.remote.cmd_move.set_start(
-                azimuth=20, elevation=-50, timeout=STD_TIMEOUT
-            )
+            await self.remote.cmd_move.set_start(azimuth=20, elevation=-50, timeout=STD_TIMEOUT)
             await self.assert_next_sample(
                 topic=self.remote.evt_inPosition,
                 azimuth=False,
@@ -110,12 +105,8 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.assert_next_sample(
-                topic=self.remote.tel_azimuth, flush=True, azimuth=20
-            )
-            await self.assert_next_sample(
-                topic=self.remote.tel_elevation, flush=True, elevation=-50
-            )
+            await self.assert_next_sample(topic=self.remote.tel_azimuth, flush=True, azimuth=20)
+            await self.assert_next_sample(topic=self.remote.tel_elevation, flush=True, elevation=-50)
             with self.subTest("Test move out of bounds."):
                 with self.assertRaises(salobj.AckError):
                     await self.remote.cmd_move.set_start(azimuth=46, elevation=46)
@@ -160,15 +151,11 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=False,
                 focus=False,
             )
-            await self.assert_next_sample(
-                topic=self.remote.tel_parked, autoparked=False, parked=False
-            )
+            await self.assert_next_sample(topic=self.remote.tel_parked, autoparked=False, parked=False)
             await self.assert_next_sample(topic=self.remote.tel_azimuth, azimuth=0)
             await self.assert_next_sample(topic=self.remote.tel_elevation, elevation=0)
             await self.assert_next_sample(topic=self.remote.tel_focus, focus=0)
-            await self.assert_next_sample(
-                topic=self.remote.tel_mask, mask="mask 1", mask_rotation=0
-            )
+            await self.assert_next_sample(topic=self.remote.tel_mask, mask="mask 1", mask_rotation=0)
             await self.assert_next_sample(
                 topic=self.remote.evt_inPosition,
                 azimuth=True,
@@ -222,15 +209,11 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.assert_next_sample(
-                topic=self.remote.tel_focus, flush=True, focus=2500
-            )
+            await self.assert_next_sample(topic=self.remote.tel_focus, flush=True, focus=2500)
 
             with self.subTest("Focus out of bounds"):
                 with self.assertRaises(salobj.AckError):
-                    await self.remote.cmd_setFocus.set_start(
-                        focus=14000, timeout=STD_TIMEOUT
-                    )
+                    await self.remote.cmd_setFocus.set_start(focus=14000, timeout=STD_TIMEOUT)
 
     async def test_park(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
@@ -283,9 +266,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             with self.subTest("Not a mask"):
                 with self.assertRaises(salobj.AckError):
-                    await self.remote.cmd_changeMask.set_start(
-                        mask="6", timeout=STD_TIMEOUT
-                    )
+                    await self.remote.cmd_changeMask.set_start(mask="6", timeout=STD_TIMEOUT)
 
     async def test_reconnect(self):
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):

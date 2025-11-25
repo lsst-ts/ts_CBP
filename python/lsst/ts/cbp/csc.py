@@ -94,9 +94,7 @@ class CBPCSC(salobj.ConfigurableCsc):
 
     def assert_unparked(self):
         if self.component.parked:
-            raise salobj.ExpectedError(
-                "CBP still parked. Please call the unpark command."
-            )
+            raise salobj.ExpectedError("CBP still parked. Please call the unpark command.")
 
     async def do_move(self, data):
         """Move the CBP mount to a specified position.
@@ -121,9 +119,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.log.debug("Begin sending telemetry")
         while True:
             if not self.component.connected and self.component.should_be_connected:
-                await self.fault(
-                    ErrorCode.CONNECTION_FAILED, report="Lost connection to controller."
-                )
+                await self.fault(ErrorCode.CONNECTION_FAILED, report="Lost connection to controller.")
                 return
             try:
                 await self.component.update_status()
