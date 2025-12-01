@@ -141,9 +141,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
             (re.compile(r"ADstat=\?"), self.do_adstat),
             (re.compile(r"AEstat=\?"), self.do_aestat),
         )
-        super().__init__(
-            name="CBP Mock Server", host=tcpip.LOCAL_HOST, port=0, log=self.log
-        )
+        super().__init__(name="CBP Mock Server", host=tcpip.LOCAL_HOST, port=0, log=self.log)
 
     async def cmd_loop(self):
         """Run the command loop.
@@ -166,9 +164,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
             for regex, command_method in self.commands:
                 matched_command = regex.fullmatch(line)
                 if matched_command:
-                    self.log.debug(
-                        f"{line} match: {matched_command} method: {command_method}"
-                    )
+                    self.log.debug(f"{line} match: {matched_command} method: {command_method}")
                     try:
                         parameter = matched_command.group("parameter")
                         self.log.debug(f"parameter={parameter}")
@@ -217,9 +213,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
                     if msg is not None:
                         bad_connection = True
                         while bad_connection:
-                            bad_connection = random.choices([True, False], [0.3, 0.7])[
-                                0
-                            ]
+                            bad_connection = random.choices([True, False], [0.3, 0.7])[0]
                             self.log.debug(f"{bad_connection=}")
                             if not bad_connection:
                                 await self.write_str(msg)
@@ -236,9 +230,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         actuator : `lsst.ts.simactuators.PointToPointActuator`
             The actuator to set.
         """
-        constrained_value = min(
-            max(value, actuator.min_position), actuator.max_position
-        )
+        constrained_value = min(max(value, actuator.min_position), actuator.max_position)
         self.log.info(f"constrained_value: {constrained_value}")
         actuator.set_position(constrained_value)
 
@@ -347,9 +339,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         -------
         str
         """
-        self.set_constrained_position(
-            value=int(mask), actuator=self.encoders.mask_select
-        )
+        self.set_constrained_position(value=int(mask), actuator=self.encoders.mask_select)
         return self.movement_reply
 
     async def do_rotation(self):
@@ -374,9 +364,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         str
         """
         self.log.debug(f"in mock server {rotation}")
-        self.set_circular_constrained_position(
-            value=float(rotation), actuator=self.encoders.mask_rotate
-        )
+        self.set_circular_constrained_position(value=float(rotation), actuator=self.encoders.mask_rotate)
         return self.movement_reply
 
     async def do_park(self, park="?"):

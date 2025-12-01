@@ -160,8 +160,7 @@ class CBPComponent:
     def generate_mask_info(self):
         """Generate initial mask info."""
         mask_dict = {
-            f"{i}": types.SimpleNamespace(name=f"Empty {i}", rotation=0, id=i)
-            for i in (1, 2, 3, 4, 5, 9)
+            f"{i}": types.SimpleNamespace(name=f"Empty {i}", rotation=0, id=i) for i in (1, 2, 3, 4, 5, 9)
         }
         mask_dict["9"].name = "Unknown"
         self.masks = mask_dict
@@ -177,22 +176,16 @@ class CBPComponent:
         """
         did_change = await self.csc.evt_inPosition.set_write(
             azimuth=abs(self.azimuth - self.target.azimuth) < self.error_tolerance,
-            elevation=abs(self.elevation - self.target.elevation)
-            < self.error_tolerance,
+            elevation=abs(self.elevation - self.target.elevation) < self.error_tolerance,
             mask=self.mask == self.target.mask,
             mask_rotation=1
-            - math.cos(
-                math.radians(self.mask_rotation)
-                - math.radians(self.target.mask_rotation)
-            )
+            - math.cos(math.radians(self.mask_rotation) - math.radians(self.target.mask_rotation))
             < self.rotation_tolerance,
             focus=abs(self.focus - self.target.focus) < self.focus_crosstalk,
         )
         return did_change
 
-    async def send_command(
-        self, msg, log=True, await_reply=True, await_terminator=True
-    ):
+    async def send_command(self, msg, log=True, await_reply=True, await_terminator=True):
         """Send the encoded command and read the reply.
 
 
@@ -227,9 +220,7 @@ class CBPComponent:
                     kwargs["n"] = 1024
                 for _ in range(NUMBER_OF_RETRIES):
                     try:
-                        reply: bytes | str = await getattr(self.client, command_name)(
-                            **kwargs
-                        )
+                        reply: bytes | str = await getattr(self.client, command_name)(**kwargs)
                     except ConnectionError:
                         self.log.exception("Lost connection.")
                         await self.csc.fault(code=ErrorCode.CONNECTION_FAILED, report="Lost Connection")
@@ -380,16 +371,12 @@ class CBPComponent:
             raise ValueError(f"{mask} not in the allowed list of masks")
         await self.csc.evt_inPosition.set_write(mask=False)
         await self.csc.evt_target.set_write(mask=self.masks.get(mask).name)
-        await self.send_command(
-            f"new_msk={self.masks.get(mask).id}", await_terminator=False
-        )
+        await self.send_command(f"new_msk={self.masks.get(mask).id}", await_terminator=False)
 
         init_mask_rotation = self.masks.get(mask).rotation
         self.log.debug(init_mask_rotation)
         await self.set_mask_rotation(mask_rotation=float(init_mask_rotation))
-        self.log.debug(
-            f"Mask changed to {mask} with initial rotation of {init_mask_rotation}"
-        )
+        self.log.debug(f"Mask changed to {mask} with initial rotation of {init_mask_rotation}")
 
     async def set_mask_rotation(self, mask_rotation: float):
         """Set the mask rotation
@@ -500,6 +487,4 @@ class CBPComponent:
             Raised when a value is outside of the given range.
         """
         if value < min_value or value > max_value:
-            raise ValueError(
-                f"{name} = {value} not in range [{min_value}, {max_value}]"
-            )
+            raise ValueError(f"{name} = {value} not in range [{min_value}, {max_value}]")
