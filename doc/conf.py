@@ -22,7 +22,7 @@
 #
 """Sphinx configuration file for TSSW package"""
 
-from documenteer.conf.pipelinespkg import *  # noqa
+from documenteer.conf.guide import *  # noqa
 
 project = "ts_cbp"
 html_theme_options["logotext"] = project  # noqa

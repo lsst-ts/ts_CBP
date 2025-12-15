@@ -7,7 +7,7 @@ name = "ts-cbp"
 description = "CBP is a Commandable SAL Component for the `Vera C. Rubin Observatory <https://lsst.org>`_."
 license = { text = "GPL"}
 readme = "README.rst"
-urls = { documentation = "https://ts-cbp.lsst.io", source_code = "https://github.com/lsst-ts/ts_cbp"}
+urls = { documentation = "https://ts-cbp.lsst.io", repository = "https://github.com/lsst-ts/ts_cbp"}
 dynamic = ["version"]
 
 [tool.setuptools.dynamic]
