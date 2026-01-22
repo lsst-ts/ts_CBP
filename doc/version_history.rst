@@ -4,6 +4,29 @@ Version History
 
 .. towncrier release notes start
 
+v1.5.3 (2026-01-22)
+===================
+
+Bug Fixes
+---------
+
+- Set reply to be None before starting retry loop so that it works properly. (`DM-50981 <https://rubinobs.atlassian.net//browse/DM-50981>`_)
+
+
+Performance Enhancement
+-----------------------
+
+- Added should_be_connected monitoring check. (`OSW-799 <https://rubinobs.atlassian.net//browse/OSW-799>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Updated conda recipe to cleanup unneeded packages and version setuptools and setuptools-scm properly. (`DM-51039 <https://rubinobs.atlassian.net//browse/DM-51039>`_)
+- Updated documentation build to documenteer 2. (`OSW-1471 <https://rubinobs.atlassian.net//browse/OSW-1471>`_)
+- Added python version to build string for conda package. (`OSW-1484 <https://rubinobs.atlassian.net//browse/OSW-1484>`_)
+
+
 v1.5.2 (2025-05-16)
 ===================
 
