@@ -33,6 +33,9 @@ from lsst.ts.cbp.enums import ErrorCode
 
 from .wizardry import NUMBER_OF_RETRIES
 
+TIMEOUT = 1
+NUMBER_OF_BYTES = 1024
+
 
 class CBPComponent:
     """This class is for implementing the CBP component.
@@ -217,17 +220,18 @@ class CBPComponent:
                     command_name = "read_str"
                 else:
                     command_name = "read"
-                    kwargs["n"] = 1024
+                    kwargs["n"] = NUMBER_OF_BYTES
                 for _ in range(NUMBER_OF_RETRIES):
                     try:
-                        reply: bytes | str = await getattr(self.client, command_name)(**kwargs)
+                        async with asyncio.timeout(TIMEOUT):
+                            reply: bytes | str = await getattr(self.client, command_name)(**kwargs)
                     except ConnectionError:
                         self.log.exception("Lost connection.")
                         await self.csc.fault(code=ErrorCode.CONNECTION_FAILED, report="Lost Connection")
                         return
-                    except Exception:
-                        self.log.exception("Reply not recieved. Waiting 5 seconds.")
-                        await asyncio.sleep(5)
+                    except TimeoutError:
+                        self.log.exception("Reply not received. Waiting 1 second(s).")
+                        await asyncio.sleep(1)
                     if reply:
                         self.log.debug(reply)
                         break

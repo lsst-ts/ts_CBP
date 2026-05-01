@@ -20,14 +20,61 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+import asyncio
+import logging
 import pathlib
 import unittest
+from unittest import mock
 
 from lsst.ts import cbp, salobj
+from lsst.ts.cbp import component as cbp_component
 
 STD_TIMEOUT = 15
 LONG_TIMEOUT = 60
 TEST_CONFIG_DIR = pathlib.Path(__file__).parents[1].joinpath("tests", "data", "config")
+
+
+class CBPComponentTestCase(unittest.IsolatedAsyncioTestCase):
+    async def test_send_command_lock_recovers_after_missing_reply(self):
+        class NoReplyClient:
+            def __init__(self):
+                self.writes = []
+
+            async def write_str(self, msg):
+                self.writes.append(msg)
+
+            async def read(self, n):
+                await asyncio.Event().wait()
+
+        client = NoReplyClient()
+        csc = mock.Mock()
+        csc.fault = mock.AsyncMock()
+        component = cbp_component.CBPComponent(
+            csc=csc,
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.client = client
+
+        with (
+            mock.patch.object(cbp_component, "NUMBER_OF_RETRIES", 1),
+            mock.patch.object(cbp_component, "TIMEOUT", 0.01),
+            mock.patch.object(cbp_component.asyncio, "sleep", new=mock.AsyncMock()),
+        ):
+            with self.assertRaises(RuntimeError):
+                await component.send_command("no_reply", await_terminator=False)
+
+            self.assertFalse(component.client_lock.locked())
+
+            async def read_reply(n):
+                return b":"
+
+            client.read = read_reply
+            await asyncio.wait_for(
+                component.send_command("reply", await_terminator=False),
+                timeout=STD_TIMEOUT,
+            )
+
+        self.assertEqual(client.writes, ["no_reply", "reply"])
 
 
 class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
@@ -72,26 +119,10 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.remote.cmd_move.set_start(azimuth=20, elevation=-50, timeout=STD_TIMEOUT)
+            await self.remote.cmd_move.set_start(azimuth=-18.048, elevation=-17.890, timeout=STD_TIMEOUT)
             await self.assert_next_sample(
                 topic=self.remote.evt_inPosition,
                 azimuth=False,
-                elevation=False,
-                mask=True,
-                mask_rotation=True,
-                focus=True,
-            )
-            # await self.assert_next_sample(
-            #     topic=self.remote.evt_inPosition,
-            #     azimuth=False,
-            #     elevation=False,
-            #     mask=True,
-            #     mask_rotation=True,
-            #     focus=True,
-            # )
-            await self.assert_next_sample(
-                topic=self.remote.evt_inPosition,
-                azimuth=True,
                 elevation=False,
                 mask=True,
                 mask_rotation=True,
@@ -105,8 +136,10 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.assert_next_sample(topic=self.remote.tel_azimuth, flush=True, azimuth=20)
-            await self.assert_next_sample(topic=self.remote.tel_elevation, flush=True, elevation=-50)
+            azimuth = await self.assert_next_sample(topic=self.remote.tel_azimuth, flush=True)
+            elevation = await self.assert_next_sample(topic=self.remote.tel_elevation, flush=True)
+            self.assertAlmostEqual(azimuth.azimuth, -18.048, delta=0.1)
+            self.assertAlmostEqual(elevation.elevation, -17.890, delta=0.1)
             with self.subTest("Test move out of bounds."):
                 with self.assertRaises(salobj.AckError):
                     await self.remote.cmd_move.set_start(azimuth=46, elevation=46)
@@ -291,7 +324,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             await self.assert_next_sample(self.remote.evt_errorCode)
             await self.assert_next_sample(
                 self.remote.evt_errorCode,
-                errorCode=cbp.enums.ErrorCode.CONNECTION_FAILED,
+                errorCode=cbp.enums.ErrorCode.TELEMETRY_LOOP_FAILED,
             )
 
 

@@ -113,7 +113,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
             (re.compile(r"az=\?"), self.do_azimuth),
             (re.compile(r"alt=\?"), self.do_altitude),
             (
-                re.compile(r"new_alt=(?P<parameter>-?[0-6]\d?\.?\d?)"),
+                re.compile(r"new_alt=(?P<parameter>-?\d+(?:\.\d+)?)"),
                 self.do_new_altitude,
             ),
             (re.compile(r"foc=\?"), self.do_focus),
@@ -125,11 +125,11 @@ class MockServer(tcpip.OneClientReadLoopServer):
             (re.compile(r"new_msk=(?P<parameter>[1-5])"), self.do_new_mask),
             (re.compile(r"rot=\?"), self.do_rotation),
             (
-                re.compile(r"new_rot=(?P<parameter>[0-1]?[0-3]?\d?\.?\d)"),
+                re.compile(r"new_rot=(?P<parameter>-?\d+(?:\.\d+)?)"),
                 self.do_new_rotation,
             ),
             (
-                re.compile(r"new_az=(?P<parameter>-?[0-3][0-5]?\.?\d?)"),
+                re.compile(r"new_az=(?P<parameter>-?\d+(?:\.\d+)?)"),
                 self.do_new_azimuth,
             ),
             (re.compile(r"wdpanic=\?"), self.do_panic),
