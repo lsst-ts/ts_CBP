@@ -207,7 +207,7 @@ class CBPCSC(salobj.ConfigurableCsc):
             mask=telemetry.mask,
             mask_rotation=telemetry.mask_rotation,
         )
-        await self.publish_in_position()
+        await self.publish_in_position(telemetry.in_position)
 
     async def do_move(self, data: salobj.BaseMsgType) -> None:
         """Move the CBP mount to a specified position.
