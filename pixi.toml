@@ -1,0 +1,50 @@
+[workspace]
+name = "ts-cbp"
+description = "Commandable SAL Component for the Rubin Observatory collimated beam projector."
+authors = ["Eric Coughlin <eric.coughlin@noirlab.edu>"]
+channels = ["conda-forge", "lsstts"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = "3.13.*"
+pip = "*"
+setuptools = "<81"
+setuptools-scm = ">=8"
+pyyaml = "*"
+ts-salobj = "*"
+ts-simactuators = "*"
+ts-tcpip = "*"
+ts-utils = "*"
+ts-xml = "*"
+
+[pypi-dependencies]
+ts-cbp = { path = ".", editable = true }
+
+[feature.dev.dependencies]
+mypy = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-xdist = "*"
+pytest-cov = "*"
+ruff = "*"
+towncrier = "*"
+
+[feature.docs.pypi-dependencies]
+documenteer = { version = "*", extras = ["pipelines"] }
+
+[feature.package.dependencies]
+rattler-build = "*"
+
+[tasks]
+test = { cmd = "TS_CONFIG_MTCALSYS_DIR=$PIXI_PROJECT_ROOT/../ts_config_mtcalsys pytest -n logical --cov lsst.ts.cbp", env = { LSST_KAFKA_BROKER_ADDR = "localhost:9092", LSST_SCHEMA_REGISTRY_URL = "http://localhost:8081" }, default-environment = "dev" }
+precommit = { cmd = "pre-commit run -a", default-environment = "dev" }
+docs = { cmd = "package-docs build", default-environment = "docs" }
+package = { cmd = "PKG_VERSION=$(python -m setuptools_scm) rattler-build build -r conda/recipe.yaml -c conda-forge -c lsstts", default-environment = "package" }
+package-no-test = { cmd = "PKG_VERSION=$(python -m setuptools_scm) rattler-build build -r conda/recipe.yaml -c conda-forge -c lsstts --test skip", default-environment = "package" }
+
+[environments]
+default = { features = ["dev"], solve-group = "py313" }
+dev = { features = ["dev"], solve-group = "py313" }
+docs = { features = ["dev", "docs"], solve-group = "py313" }
+package = { features = ["package"], solve-group = "py313" }

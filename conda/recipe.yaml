@@ -1,0 +1,56 @@
+# Generate this from setuptools-scm before invoking rattler-build, for example:
+#   export PKG_VERSION="$(python -m setuptools_scm)"
+# Build and test with the Rubin package channel available, for example:
+#   rattler-build build -c conda-forge -c lsstts
+# To only build the package artifact without solving runtime test deps:
+#   rattler-build build --test skip
+# The build script passes the same value back to setuptools-scm so package
+# metadata and the installed Python distribution version stay aligned.
+context:
+  version: ${{ env.get("PKG_VERSION") }}
+  python_version: "3.13"
+
+package:
+  name: ts-cbp
+  version: ${{ version }}
+
+source:
+  path: ..
+
+build:
+  noarch: python
+  number: 0
+  string: py313_0
+  script:
+    - SETUPTOOLS_SCM_PRETEND_VERSION_FOR_TS_CBP=${{ version }} python -m pip install . --no-deps --no-build-isolation --ignore-installed -vv
+  python:
+    entry_points:
+      - run_cbp = lsst.ts.cbp:execute_csc
+
+requirements:
+  host:
+    - python ${{ python_version }}.*
+    - pip
+    - setuptools >=64
+    - setuptools-scm >=8
+  run:
+    - python >=${{ python_version }},<3.14
+    - ts-salobj
+    - ts-simactuators
+    - ts-tcpip
+    - ts-utils
+    - ts-xml
+
+tests:
+  - python:
+      imports:
+        - lsst.ts.cbp
+  - script:
+      - python -c "import importlib.metadata as metadata; assert metadata.version('ts-cbp') == '${{ version }}'"
+
+about:
+  homepage: https://github.com/lsst-ts/ts_cbp
+  repository: https://github.com/lsst-ts/ts_cbp
+  documentation: https://ts-cbp.lsst.io
+  license: GPL-3.0-or-later
+  summary: Commandable SAL Component for the Vera C. Rubin Observatory collimated beam projector.
