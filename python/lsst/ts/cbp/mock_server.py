@@ -27,6 +27,8 @@ import enum
 import logging
 import random
 import re
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from lsst.ts import simactuators, tcpip
 
@@ -43,7 +45,7 @@ class Encoders:
     mask_rotate : `lsst.ts.simactuators.CircularPointToPointActuator`
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.azimuth = simactuators.PointToPointActuator(
             min_position=-45, max_position=45, speed=10, start_position=0
         )
@@ -60,6 +62,8 @@ class Encoders:
 
 
 class StatusError(enum.Flag):
+    """Status bits returned by the mock controller."""
+
     NO = 0
     POSITION = 1
     SERIAL_ENCODER = enum.auto()
@@ -76,6 +80,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
     Parameters
     ----------
     log : `logging.Logger`, optional
+        Optional logger used for mock-server diagnostics.
 
     Attributes
     ----------
@@ -91,12 +96,14 @@ class MockServer(tcpip.OneClientReadLoopServer):
     encoders : `Encoders`
     park : `bool`
     auto_park : `bool`
-    masks_rotation : `dict` of `str`:`float`
-    commands : `tuple` of `re.Pattern`:`functools.partial`
+    movement_reply : `str`
+        Reply string returned by motion commands.
+    commands : `tuple` of `re.Pattern` to `Callable`
+        Command dispatch table.
     log : `logging.Logger`
     """
 
-    def __init__(self, log=None):
+    def __init__(self, log: logging.Logger | None = None) -> None:
         self.log = logging.getLogger(__name__)
         self.timeout = 5
         self.long_timeout = 30
@@ -109,7 +116,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
         self.park = False
         self.auto_park = False
         self.movement_reply = ":"
-        self.commands = (
+        self.commands: tuple[tuple[re.Pattern[str], Callable[..., Awaitable[str | None]]], ...] = (
             (re.compile(r"az=\?"), self.do_azimuth),
             (re.compile(r"alt=\?"), self.do_altitude),
             (
@@ -143,15 +150,8 @@ class MockServer(tcpip.OneClientReadLoopServer):
         )
         super().__init__(name="CBP Mock Server", host=tcpip.LOCAL_HOST, port=0, log=self.log)
 
-    async def cmd_loop(self):
-        """Run the command loop.
-
-        Parameters
-        ----------
-        reader : `asyncio.StreamReader`
-        writer : `asyncio.StreamWriter`
-
-        """
+    async def cmd_loop(self) -> None:
+        """Run the command loop."""
         while self.connected:
             self.log.debug("In cmd loop")
             line = await self.reader.readuntil(self.terminator.encode())
@@ -191,7 +191,8 @@ class MockServer(tcpip.OneClientReadLoopServer):
                             await self.writer.drain()
                     break
 
-    async def read_and_dispatch(self):
+    async def read_and_dispatch(self) -> None:
+        """Read one command and dispatch it to the matching handler."""
         line = await self.read_str()
         for regex, command_method in self.commands:
             matched_command = regex.fullmatch(line)
@@ -220,28 +221,28 @@ class MockServer(tcpip.OneClientReadLoopServer):
                             await asyncio.sleep(0.2)
                 break
 
-    def set_constrained_position(self, value, actuator):
+    def set_constrained_position(self, value: float, actuator: Any) -> None:
         """Set actuator to position that is silently constrained to bounds.
 
         Parameters
         ----------
         value : `float`
             Desired value
-        actuator : `lsst.ts.simactuators.PointToPointActuator`
+        actuator : `object`
             The actuator to set.
         """
         constrained_value = min(max(value, actuator.min_position), actuator.max_position)
         self.log.info(f"constrained_value: {constrained_value}")
         actuator.set_position(constrained_value)
 
-    def set_circular_constrained_position(self, value, actuator):
+    def set_circular_constrained_position(self, value: float, actuator: Any) -> None:
         """Set actuator to position that is silently constrained to bounds.
 
         Parameters
         ----------
         value : `float`
             Desired value
-        actuator : `lsst.ts.simactuators.CircularPointToPointActuator`
+        actuator : `object`
             The actuator to set.
         """
         constrained_value = min(max(0, value), 360)
@@ -249,134 +250,141 @@ class MockServer(tcpip.OneClientReadLoopServer):
         self.log.debug(f"from actuator {actuator.set_position(constrained_value)}")
         actuator.set_position(constrained_value)
 
-    async def do_azimuth(self):
+    async def do_azimuth(self) -> str:
         """Return azimuth position.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{self.encoders.azimuth.position()}"
 
-    async def do_new_azimuth(self, azimuth):
+    async def do_new_azimuth(self, azimuth: str) -> str:
         """Set the new azimuth position.
 
         Parameters
         ----------
-        azimuth : `float`
+        azimuth : `str`
+            Desired azimuth position in degrees.
 
         Returns
         -------
-        str
+        `str`
         """
         self.set_constrained_position(float(azimuth), self.encoders.azimuth)
         return self.movement_reply
 
-    async def do_altitude(self):
+    async def do_altitude(self) -> str:
         """Return the altitude position.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{self.encoders.elevation.position()}"
 
-    async def do_new_altitude(self, altitude):
+    async def do_new_altitude(self, altitude: str) -> str:
         """Set the new altitude position.
 
         Parameters
         ----------
-        altitude : `float`
+        altitude : `str`
+            Desired altitude position in degrees.
 
         Returns
         -------
-        str
+        `str`
         """
         self.set_constrained_position(float(altitude), self.encoders.elevation)
         return self.movement_reply
 
-    async def do_focus(self):
+    async def do_focus(self) -> str:
         """Return the focus value.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{int(self.encoders.focus.position())}"
 
-    async def do_new_focus(self, focus):
+    async def do_new_focus(self, focus: str) -> str:
         """Set the new focus value.
 
         Parameters
         ----------
-        focus
+        focus : `str`
+            Desired focus position in microns.
 
         Returns
         -------
-        str
+        `str`
         """
         self.set_constrained_position(value=int(focus), actuator=self.encoders.focus)
         return self.movement_reply
 
-    async def do_mask(self):
+    async def do_mask(self) -> str:
         """Return the mask value.
 
         Returns
         -------
-        str
+        `str`
         """
         self.log.debug(f"mask_select: {self.encoders.mask_select.position()}")
         return f"{self.encoders.mask_select.position()}"
 
-    async def do_new_mask(self, mask):
+    async def do_new_mask(self, mask: str) -> str:
         """Set the new mask value.
 
         Parameters
         ----------
         mask : `str`
+            Desired mask identifier.
 
         Returns
         -------
-        str
+        `str`
         """
         self.set_constrained_position(value=int(mask), actuator=self.encoders.mask_select)
         return self.movement_reply
 
-    async def do_rotation(self):
+    async def do_rotation(self) -> str:
         """Return the mask rotation value.
 
         Returns
         -------
-        str
+        `str`
         """
         self.log.debug(f"do_rotation {self.encoders.mask_rotate.position()}")
         return f"{self.encoders.mask_rotate.position()}"
 
-    async def do_new_rotation(self, rotation):
+    async def do_new_rotation(self, rotation: str) -> str:
         """Set the new mask rotation value.
 
         Parameters
         ----------
-        rotation : `float`
+        rotation : `str`
+            Desired mask rotation in degrees.
 
         Returns
         -------
-        str
+        `str`
         """
         self.log.debug(f"in mock server {rotation}")
         self.set_circular_constrained_position(value=float(rotation), actuator=self.encoders.mask_rotate)
         return self.movement_reply
 
-    async def do_park(self, park="?"):
+    async def do_park(self, park: str = "?") -> str:
         """Park or unpark the CBP.
 
         Parameters
         ----------
-        park : `int`, optional
+        park : `str`, optional
+            ``"?"`` queries the current park state, otherwise ``"0"`` or
+            ``"1"`` sets it.
 
         Returns
         -------
-        str
+        `str`
         """
         if park == "?":
             self.log.info(f"Park: {self.park}")
@@ -387,65 +395,65 @@ class MockServer(tcpip.OneClientReadLoopServer):
             self.log.info(f"Park: {self.park}")
             return self.movement_reply
 
-    async def do_panic(self):
+    async def do_panic(self) -> str:
         """Return the panic status value.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{float(self.panic_status)}"
 
-    async def do_aastat(self):
+    async def do_aastat(self) -> str:
         """Return the azimuth encoder status.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{float(0)}"
 
-    async def do_abstat(self):
+    async def do_abstat(self) -> str:
         """Return the altitude encoder status.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{float(0)}"
 
-    async def do_acstat(self):
+    async def do_acstat(self) -> str:
         """Return the focus encoder status.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{float(0)}"
 
-    async def do_adstat(self):
+    async def do_adstat(self) -> str:
         """Return the mask selection encoder status.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{float(0)}"
 
-    async def do_aestat(self):
+    async def do_aestat(self) -> str:
         """Return the mask rotation encoder status.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{float(0)}"
 
-    async def do_autopark(self):
+    async def do_autopark(self) -> str:
         """Return the autopark value.
 
         Returns
         -------
-        str
+        `str`
         """
         return f"{float(0)}"
