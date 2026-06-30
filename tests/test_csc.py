@@ -285,6 +285,54 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 flush=False,
             )
 
+    async def test_publish_telemetry_uses_snapshot_in_position(self) -> None:
+        async with self.make_csc(initial_state=salobj.State.STANDBY, simulation_mode=1):
+            self.remote.evt_inPosition.flush()
+            self.csc.in_position = cbp_component.InPosition(
+                azimuth=False,
+                elevation=False,
+                focus=False,
+                mask=False,
+                mask_rotation=False,
+            )
+            telemetry = cbp_component.TelemetrySnapshot(
+                azimuth=1.0,
+                elevation=2.0,
+                focus=3.0,
+                mask="test-mask",
+                mask_rotation=4.0,
+                parked=False,
+                autoparked=False,
+                status=cbp_component.Status(
+                    panic=False,
+                    azimuth=False,
+                    elevation=False,
+                    mask=False,
+                    mask_rotation=False,
+                    focus=False,
+                ),
+                in_position=cbp_component.InPosition(
+                    azimuth=True,
+                    elevation=True,
+                    focus=True,
+                    mask=True,
+                    mask_rotation=True,
+                ),
+                valid=True,
+            )
+
+            await self.csc.publish_telemetry(telemetry)
+
+            await self.assert_next_sample(
+                topic=self.remote.evt_inPosition,
+                azimuth=True,
+                elevation=True,
+                mask=True,
+                mask_rotation=True,
+                focus=True,
+                flush=False,
+            )
+
     async def test_setFocus(self) -> None:
         async with self.make_csc(initial_state=salobj.State.ENABLED, simulation_mode=1):
             await self.assert_next_sample(
