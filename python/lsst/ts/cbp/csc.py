@@ -21,7 +21,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import asyncio
-import dataclasses
 import pathlib
 import types
 from typing import Any
@@ -82,13 +81,9 @@ class CBPCSC(salobj.ConfigurableCsc):
     mask_timeout : `int`
         The time to wait for a mask motion to complete.
     in_position : `component.InPosition`
-        CSC-owned transient in-position snapshot used for command responses.
+        Component-owned in-position snapshot used for command responses.
     polling_interval : `float`
         The interval between monitor reads.
-    monitor_condition : `asyncio.Condition`
-        Condition used to wake command waiters when monitor state changes.
-    monitor_failure : `str` or `None`
-        Latest monitor failure reason, if any.
     """
 
     valid_simulation_modes = (0, 1)
@@ -116,17 +111,17 @@ class CBPCSC(salobj.ConfigurableCsc):
         self.telemetry_interval = TELEMETRY_INTERVAL
         self.in_position_timeout = IN_POSITION_TIMEOUT
         self.mask_timeout = MASK_TIMEOUT  # 20 sec per mask.
-        # Command-facing in-position state. This may briefly lead hardware
-        # telemetry: command handlers set fields false immediately when
-        # accepting a command, and monitor() later replaces it with
-        # TelemetrySnapshot.in_position after hardware state is read.
-        self.in_position: component.InPosition = component.InPosition(
-            azimuth=False, elevation=False, focus=False, mask=False, mask_rotation=False
-        )
         self.polling_interval = POLLING_INTERVAL
-        self.monitor_condition = asyncio.Condition()
-        self.monitor_failure: str | None = None
         self.log.info("CBP CSC initialized")
+
+    @property
+    def in_position(self) -> component.InPosition:
+        """Return the component-owned command-facing in-position state."""
+        return self.component.in_position
+
+    @in_position.setter
+    def in_position(self, in_position: component.InPosition) -> None:
+        self.component.in_position = in_position
 
     def assert_unparked(self) -> None:
         """Assert that the CBP is not parked.
@@ -139,32 +134,35 @@ class CBPCSC(salobj.ConfigurableCsc):
         if self.component.parked:
             raise salobj.ExpectedError("CBP still parked. Please call the unpark command.")
 
-    async def publish_target(self) -> None:
-        """Publish the component's commanded target state."""
+    async def publish_target(self, target: component.Target | None = None) -> None:
+        """Publish a commanded target state."""
+        if target is None:
+            target = self.component.target
+
         await self.evt_target.set_write(
-            azimuth=self.component.target.azimuth,
-            elevation=self.component.target.elevation,
-            focus=self.component.target.focus,
-            mask=self.component.target.mask,
-            mask_rotation=self.component.target.mask_rotation,
+            azimuth=target.azimuth,
+            elevation=target.elevation,
+            focus=target.focus,
+            mask=target.mask,
+            mask_rotation=target.mask_rotation,
         )
 
     async def publish_in_position(self, in_position: component.InPosition | None = None) -> None:
         """Publish an in-position state.
 
         If ``in_position`` is provided, it is usually a telemetry-derived
-        snapshot from `component.TelemetrySnapshot.in_position`. If omitted,
-        this publishes the CSC-owned transient state used for immediate command
-        acknowledgement transitions.
+        snapshot from `component.TelemetrySnapshot.in_position` or a
+        command-facing snapshot from `component.TargetUpdate`. If omitted,
+        this publishes the component-owned transient state.
 
         Parameters
         ----------
         in_position : `component.InPosition`, optional
-            In-position snapshot to publish. If omitted, publish the CSC-owned
-            transient in-position state used while commands are active.
+            In-position snapshot to publish. If omitted, publish the
+            component-owned transient in-position state.
         """
         if in_position is None:
-            in_position = self.in_position
+            in_position = self.component.in_position
 
         await self.evt_inPosition.set_write(
             azimuth=in_position.azimuth,
@@ -220,8 +218,11 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.assert_enabled("move")
         self.assert_unparked()
-        await self.accept_target(
-            target={"azimuth": data.azimuth, "elevation": data.elevation},
+        await self.publish_target_update(
+            self.component.accept_target_update(
+                azimuth=data.azimuth,
+                elevation=data.elevation,
+            )
         )
         await asyncio.gather(
             self.component.move_elevation(data.elevation),
@@ -230,60 +231,34 @@ class CBPCSC(salobj.ConfigurableCsc):
         await self.cmd_move.ack_in_progress(data, self.in_position_timeout)
         await asyncio.wait_for(self.wait_for_move_completion(), self.in_position_timeout)
 
-    async def notify_monitor_success(self, telemetry: component.TelemetrySnapshot) -> None:
-        """Record a successful monitor cycle and wake command waiters.
-
-        Parameters
-        ----------
-        telemetry : `component.TelemetrySnapshot`
-            Snapshot read during the successful monitor cycle.
-        """
-        async with self.monitor_condition:
-            self.component.telemetry = telemetry
-            self.in_position = telemetry.in_position
-            self.monitor_failure = None
-            self.monitor_condition.notify_all()
-
-    async def notify_monitor_failure(self, reason: str) -> None:
-        """Record monitor failure reason and wake command waiters.
-
-        Parameters
-        ----------
-        reason : `str`
-            Failure reason reported by the monitor task.
-        """
-        async with self.monitor_condition:
-            self.monitor_failure = reason
-            self.monitor_condition.notify_all()
-
     async def monitor(self) -> None:
         """Read hardware state and update component telemetry snapshots."""
         while True:
             if not self.component.connected and self.component.should_be_connected:
                 reason = "Lost connection to controller."
-                await self.notify_monitor_failure(reason)
+                await self.component.notify_monitor_failure(reason)
                 await self.fault(ErrorCode.CONNECTION_FAILED, report=reason)
                 return
             try:
                 telemetry = await self.component.update_status()
             except asyncio.CancelledError:
-                await self.notify_monitor_failure("Monitor task cancelled.")
+                await self.component.notify_monitor_failure("Monitor task cancelled.")
                 raise
             except (ConnectionError, asyncio.IncompleteReadError):
                 reason = "Lost connection to controller."
-                await self.notify_monitor_failure(reason)
+                await self.component.notify_monitor_failure(reason)
                 await self.fault(ErrorCode.CONNECTION_FAILED, report=reason)
                 return
             except component.CommandReplyError as e:
                 reason = str(e)
                 self.log.exception(reason)
-                await self.notify_monitor_failure(reason)
+                await self.component.notify_monitor_failure(reason)
                 await self.fault(ErrorCode.REPLY_FAILED, report=reason)
                 return
             except Exception:
                 reason = "Monitor loop failed."
                 self.log.exception(reason)
-                await self.notify_monitor_failure(reason)
+                await self.component.notify_monitor_failure(reason)
                 await self.fault(
                     code=ErrorCode.MONITOR_LOOP_FAILED,
                     report=reason,
@@ -291,13 +266,13 @@ class CBPCSC(salobj.ConfigurableCsc):
                 return
             if telemetry.status.panic:
                 reason = "CBP panicked. Check hardware and reset device."
-                await self.notify_monitor_failure(reason)
+                await self.component.notify_monitor_failure(reason)
                 await self.fault(
                     ErrorCode.PANICKED,
                     reason,
                 )
                 return
-            await self.notify_monitor_success(telemetry)
+            await self.component.notify_monitor_success(telemetry)
             await asyncio.sleep(self.polling_interval)
 
     async def telemetry(self) -> None:
@@ -327,7 +302,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.assert_enabled("setFocus")
         self.assert_unparked()
-        await self.accept_target(target={"focus": data.focus})
+        await self.publish_target_update(self.component.accept_target_update(focus=data.focus))
         await self.component.change_focus(data.focus)
         await self.cmd_setFocus.ack_in_progress(data, self.in_position_timeout)
         await asyncio.wait_for(self.wait_for_move_completion(), self.in_position_timeout)
@@ -372,10 +347,7 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.assert_enabled("changeMask")
         self.assert_unparked()
-        mask_target = self.component.get_mask_target(data.mask)
-        await self.accept_target(
-            target={"mask": mask_target.name, "mask_rotation": mask_target.rotation},
-        )
+        await self.publish_target_update(self.component.accept_mask_target_update(data.mask))
         await self.component.set_mask(data.mask)
         await self.cmd_changeMask.ack_in_progress(data, self.mask_timeout)
         await asyncio.wait_for(self.wait_for_move_completion(), self.mask_timeout)
@@ -391,7 +363,9 @@ class CBPCSC(salobj.ConfigurableCsc):
         """
         self.assert_enabled("changeMaskRotation")
         self.assert_unparked()
-        await self.accept_target(target={"mask_rotation": data.mask_rotation})
+        await self.publish_target_update(
+            self.component.accept_target_update(mask_rotation=data.mask_rotation)
+        )
         await self.component.set_mask_rotation(data.mask_rotation)
         await self.cmd_changeMaskRotation.ack_in_progress(data, self.mask_timeout)
         await asyncio.wait_for(self.wait_for_move_completion(), self.mask_timeout)
@@ -425,11 +399,10 @@ class CBPCSC(salobj.ConfigurableCsc):
                 self.component.telemetry = telemetry
                 self.component.initialize_target_from_telemetry()
                 telemetry = self.component.telemetry
-                self.in_position = telemetry.in_position
                 await self.publish_target()
                 await self.publish_telemetry(telemetry)
             if self.monitor_task.done():
-                self.monitor_failure = None
+                await self.component.clear_monitor_failure()
                 self.monitor_task = asyncio.create_task(self.monitor())
             if self.telemetry_task.done():
                 self.telemetry_task = asyncio.create_task(self.telemetry())
@@ -477,41 +450,12 @@ class CBPCSC(salobj.ConfigurableCsc):
             self.simulator = None
 
     async def wait_for_move_completion(self) -> None:
-        """Wait for all axes of the CBP to be in position.
-
-        In this case, in position is defined as the encoder values being
-        within tolerance to the target values.
-
-        The wait ends when the monitor reports that all axes are in position
-        or raises if the monitor fails first.
-        """
-        async with self.monitor_condition:
-            while not self.motion_complete:
-                if self.monitor_failure is not None:
-                    raise salobj.ExpectedError(
-                        f"Monitor stopped while waiting for motion: {self.monitor_failure}"
-                    )
-                if self.monitor_task.done():
-                    raise salobj.ExpectedError("Monitor task stopped while waiting for motion.")
-                await self.monitor_condition.wait()
+        """Wait for all axes of the CBP to be in position."""
+        try:
+            await self.component.wait_for_motion_complete(self.monitor_task)
+        except component.MonitorStoppedError as e:
+            raise salobj.ExpectedError(str(e)) from e
         self.log.info("Motion finished")
-
-    @property
-    def motion_complete(self) -> bool:
-        """Return whether all CBP axes are in position.
-
-        Returns
-        -------
-        motion_complete : `bool`
-            True if all in-position fields are true.
-        """
-        return (
-            self.in_position.azimuth
-            and self.in_position.elevation
-            and self.in_position.focus
-            and self.in_position.mask_rotation
-            and self.in_position.mask
-        )
 
     async def cancel_task(self, task: asyncio.Future[Any]) -> None:
         """Cancel and await task result. noop if already done.
@@ -534,55 +478,20 @@ class CBPCSC(salobj.ConfigurableCsc):
         except Exception:
             self.log.exception("Task failed while being cancelled.")
 
-    def set_in_position(self, **kwargs: Any) -> None:
-        """Update the CSC-owned transient in-position state.
-
-        This state is used to publish command-facing ``evt_inPosition``
-        transitions immediately when a command is accepted. It is intentionally
-        separate from `component.TelemetrySnapshot.in_position`, which is
-        computed from hardware telemetry during `monitor`.
-
-        After a successful monitor cycle, `notify_monitor_success` replaces
-        this transient state with the telemetry-derived in-position state.
-
-        Parameters
-        ----------
-        **kwargs
-            In-position fields and values to replace in the immutable snapshot.
-        """
-        self.in_position = dataclasses.replace(self.in_position, **kwargs)
-
     async def wait_for_park_completion(self, parked: bool) -> None:
-        """Wait for the monitor loop to observe the requested park state.
+        """Wait for the monitor loop to observe the requested park state."""
+        try:
+            await self.component.wait_for_park_state(parked, self.monitor_task)
+        except component.MonitorStoppedError as e:
+            raise salobj.ExpectedError(str(e)) from e
+
+    async def publish_target_update(self, target_update: component.TargetUpdate) -> None:
+        """Publish an accepted component target update.
 
         Parameters
         ----------
-        parked : `bool`
-            Desired parked state.
-
-        The wait ends when telemetry reports the requested state or raises if
-        the monitor fails first.
+        target_update : `component.TargetUpdate`
+            Component-owned target update to publish through SAL.
         """
-        async with self.monitor_condition:
-            while self.component.telemetry.parked != parked:
-                if self.monitor_failure is not None:
-                    raise salobj.ExpectedError(
-                        f"Monitor stopped while waiting for park state: {self.monitor_failure}"
-                    )
-                if self.monitor_task.done():
-                    raise salobj.ExpectedError("Monitor task stopped while waiting for park state.")
-                await self.monitor_condition.wait()
-
-    async def accept_target(self, target: dict[str, Any]) -> None:
-        """Validate target data and clear the corresponding in-position bits.
-
-        Parameters
-        ----------
-        target : `dict` [`str`, `Any`]
-            Target fields and values to validate before updating the target
-            snapshot.
-        """
-        self.component.set_target(**target)
-        self.set_in_position(**dict.fromkeys(target, False))
-        await self.publish_target()
-        await self.publish_in_position()
+        await self.publish_target(target_update.target)
+        await self.publish_in_position(target_update.in_position)
