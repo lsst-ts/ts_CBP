@@ -23,10 +23,12 @@
 __all__ = [
     "CBPComponent",
     "Target",
+    "TargetUpdate",
     "TelemetrySnapshot",
     "InPosition",
     "Status",
     "CommandReplyError",
+    "MonitorStoppedError",
     "MaskTarget",
 ]
 
@@ -106,6 +108,25 @@ class InPosition:
 
 
 @dataclass(frozen=True)
+class TargetUpdate:
+    """Result of accepting a new CBP target.
+
+    Attributes
+    ----------
+    target : `Target`
+        Full commanded target state after applying the update.
+    moved_axes : `frozenset` [`str`]
+        Axes affected by the accepted target update.
+    in_position : `InPosition`
+        Transient in-position state after marking moved axes out of position.
+    """
+
+    target: Target
+    moved_axes: frozenset[str]
+    in_position: InPosition
+
+
+@dataclass(frozen=True)
 class Status:
     """Hardware status bits reported by the CBP controller.
 
@@ -157,7 +178,7 @@ class TelemetrySnapshot:
         Hardware status snapshot.
     in_position : `InPosition`
         In-position snapshot computed from the measured state.
-    valid : `bool`
+    valid : `bool`, optional
         True if the snapshot was populated from hardware. Initial values are
         placeholders and are intentionally marked invalid.
     """
@@ -217,6 +238,16 @@ class CommandReplyError(RuntimeError):
         self.reason = reason
 
 
+class MonitorStoppedError(RuntimeError):
+    """Raised when a monitor-dependent wait cannot complete.
+
+    Parameters
+    ----------
+    reason : `str`
+        Human-readable reason the wait cannot complete.
+    """
+
+
 class CBPComponent:
     """This class is for implementing the CBP component.
 
@@ -254,6 +285,12 @@ class CBPComponent:
         Latest commanded target snapshot.
     telemetry : `TelemetrySnapshot`
         Latest hardware telemetry snapshot.
+    in_position : `InPosition`
+        Latest component-owned command-facing in-position snapshot.
+    monitor_condition : `asyncio.Condition`
+        Condition used to wake command waiters when monitor state changes.
+    monitor_failure : `str` or `None`
+        Latest monitor failure reason, if any.
     masks : `dict` of `str` to `types.SimpleNamespace`
         Configured mask metadata keyed by mask ID.
     error_tolerance : `float`
@@ -296,6 +333,8 @@ class CBPComponent:
         self.client = tcpip.Client(host="", port=None, log=self.log)
         self.terminator = "\r\n"
         self.client_lock = asyncio.Lock()
+        self.monitor_condition = asyncio.Condition()
+        self.monitor_failure: str | None = None
         self.generate_mask_info()
         self.target = Target(
             azimuth=0,
@@ -315,7 +354,117 @@ class CBPComponent:
             status=Status(False, False, False, False, False, False),
             in_position=InPosition(False, False, False, False, False),
         )
+        self.in_position = self.telemetry.in_position
         self.log.info("CBP component initialized")
+
+    @property
+    def motion_complete(self) -> bool:
+        """Return whether all CBP axes are in position.
+
+        Returns
+        -------
+        motion_complete : `bool`
+            True if all in-position fields are true.
+        """
+        return (
+            self.in_position.azimuth
+            and self.in_position.elevation
+            and self.in_position.focus
+            and self.in_position.mask_rotation
+            and self.in_position.mask
+        )
+
+    async def notify_monitor_success(self, telemetry: TelemetrySnapshot) -> None:
+        """Record a successful monitor cycle and wake command waiters.
+
+        Parameters
+        ----------
+        telemetry : `TelemetrySnapshot`
+            Snapshot read during the successful monitor cycle.
+        """
+        async with self.monitor_condition:
+            self.telemetry = telemetry
+            self.in_position = telemetry.in_position
+            self.monitor_failure = None
+            self.monitor_condition.notify_all()
+
+    async def notify_monitor_failure(self, reason: str) -> None:
+        """Record monitor failure reason and wake command waiters.
+
+        Parameters
+        ----------
+        reason : `str`
+            Failure reason reported by the monitor task.
+        """
+        async with self.monitor_condition:
+            self.monitor_failure = reason
+            self.monitor_condition.notify_all()
+
+    async def clear_monitor_failure(self) -> None:
+        """Clear the latest monitor failure state."""
+        async with self.monitor_condition:
+            self.monitor_failure = None
+            self.monitor_condition.notify_all()
+
+    def _assert_monitor_running(self, monitor_task: asyncio.Future[Any], wait_name: str) -> None:
+        """Raise if a monitor-dependent wait cannot continue.
+
+        Parameters
+        ----------
+        monitor_task : `asyncio.Future`
+            Monitor task that should continue updating component telemetry.
+        wait_name : `str`
+            Human-readable wait target used in error messages.
+
+        Raises
+        ------
+        MonitorStoppedError
+            Raised if the monitor has failed or stopped.
+        """
+        if self.monitor_failure is not None:
+            raise MonitorStoppedError(
+                f"Monitor stopped while waiting for {wait_name}: {self.monitor_failure}"
+            )
+        if monitor_task.done():
+            raise MonitorStoppedError(f"Monitor task stopped while waiting for {wait_name}.")
+
+    async def wait_for_motion_complete(self, monitor_task: asyncio.Future[Any]) -> None:
+        """Wait for all CBP axes to be in position.
+
+        Parameters
+        ----------
+        monitor_task : `asyncio.Future`
+            Monitor task that should continue updating component telemetry.
+
+        Raises
+        ------
+        MonitorStoppedError
+            Raised if the monitor fails or stops before motion completes.
+        """
+        async with self.monitor_condition:
+            while not self.motion_complete:
+                self._assert_monitor_running(monitor_task, "motion")
+                await self.monitor_condition.wait()
+
+    async def wait_for_park_state(self, parked: bool, monitor_task: asyncio.Future[Any]) -> None:
+        """Wait for the monitor loop to observe the requested park state.
+
+        Parameters
+        ----------
+        parked : `bool`
+            Desired parked state.
+        monitor_task : `asyncio.Future`
+            Monitor task that should continue updating component telemetry.
+
+        Raises
+        ------
+        MonitorStoppedError
+            Raised if the monitor fails or stops before the state is observed.
+        """
+        async with self.monitor_condition:
+            while self.telemetry.parked != parked:
+                self._assert_monitor_running(monitor_task, "park state")
+                await self.monitor_condition.wait()
 
     @property
     def connected(self) -> bool:
@@ -442,6 +591,58 @@ class CBPComponent:
         """
         self.validate_target(**kwargs)
         self.target = dataclasses.replace(self.target, **kwargs)
+
+    def accept_target_update(self, **kwargs: Any) -> TargetUpdate:
+        """Validate and accept a target update.
+
+        The returned update contains the full target snapshot and the
+        component-owned transient in-position state after marking the affected
+        axes out of position.
+
+        Parameters
+        ----------
+        **kwargs : `Any`
+            Target fields and values to replace in the immutable target
+            snapshot. Each key must name a field on `Target`.
+
+        Returns
+        -------
+        target_update : `TargetUpdate`
+            Accepted target data for CSC publication.
+        """
+        self.validate_target(**kwargs)
+        moved_axes = frozenset(kwargs)
+        target = dataclasses.replace(self.target, **kwargs)
+        in_position = dataclasses.replace(
+            self.in_position,
+            **dict.fromkeys(moved_axes, False),
+        )
+        self.target = target
+        self.in_position = in_position
+        return TargetUpdate(
+            target=target,
+            moved_axes=moved_axes,
+            in_position=in_position,
+        )
+
+    def accept_mask_target_update(self, mask: str | int) -> TargetUpdate:
+        """Validate and accept a configured mask target.
+
+        Parameters
+        ----------
+        mask : `str` or `int`
+            Mask identifier accepted by the controller and configuration.
+
+        Returns
+        -------
+        target_update : `TargetUpdate`
+            Accepted target data for CSC publication.
+        """
+        mask_target = self.get_mask_target(mask)
+        return self.accept_target_update(
+            mask=mask_target.name,
+            mask_rotation=mask_target.rotation,
+        )
 
     async def _read_reply_with_retries(
         self, msg: str, command_name: str, kwargs: dict[str, Any], log: bool
@@ -624,7 +825,6 @@ class CBPComponent:
         ------
         Exception
             Raised when the controller connection cannot be established.
-
         """
         try:
             self.client = tcpip.Client(host=self.host, port=self.port, log=self.log)
@@ -666,7 +866,6 @@ class CBPComponent:
 
         """
         self.assert_in_range("azimuth", position, MIN_AZIMUTH, MAX_AZIMUTH)
-        self.set_target(azimuth=position)
         await self.send_command(f"new_az={position}", await_terminator=False)
 
     async def get_elevation(self) -> float:
@@ -696,7 +895,6 @@ class CBPComponent:
 
         """
         self.assert_in_range("elevation", position, MIN_ELEVATION, MAX_ELEVATION)
-        self.set_target(elevation=position)
         await self.send_command(f"new_alt={position}", await_terminator=False)
         self.log.debug("move_elevation command sent")
 
@@ -724,7 +922,6 @@ class CBPComponent:
             Raised when the new value falls outside the accepted range.
         """
         self.assert_in_range("focus", position, MIN_FOCUS, MAX_FOCUS)
-        self.set_target(focus=int(position))
         self.log.debug("Sending new focus position")
         await self.send_command(f"new_foc={int(position)}", await_terminator=False)
         self.log.debug("Change focus command sent)")
@@ -761,7 +958,6 @@ class CBPComponent:
 
         """
         mask_target = self.get_mask_target(mask)
-        self.set_target(mask=mask_target.name)
         await self.send_command(f"new_msk={mask_target.id}", await_terminator=False)
         await self.set_mask_rotation(mask_target.rotation)
 
@@ -780,7 +976,6 @@ class CBPComponent:
 
         """
         self.assert_in_range("mask_rotation", mask_rotation, MIN_MASK_ROTATION, MAX_MASK_ROTATION)
-        self.set_target(mask_rotation=mask_rotation)
 
         self.log.debug(f"target: {self.target}")
         await self.send_command(f"new_rot={mask_rotation}", await_terminator=False)
@@ -950,6 +1145,7 @@ class CBPComponent:
                 mask_rotation=True,
             ),
         )
+        self.in_position = self.telemetry.in_position
 
     def validate_target(
         self,

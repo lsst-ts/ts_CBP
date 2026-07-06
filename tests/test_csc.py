@@ -60,6 +60,40 @@ class CBPComponentTestCase(unittest.IsolatedAsyncioTestCase):
         async def read(self, n: int) -> bytes:
             raise ConnectionError("Lost connection.")
 
+    def make_telemetry(
+        self,
+        *,
+        parked: bool = False,
+        in_position: cbp_component.InPosition | None = None,
+    ) -> cbp_component.TelemetrySnapshot:
+        if in_position is None:
+            in_position = cbp_component.InPosition(
+                azimuth=True,
+                elevation=True,
+                focus=True,
+                mask=True,
+                mask_rotation=True,
+            )
+        return cbp_component.TelemetrySnapshot(
+            azimuth=0,
+            elevation=0,
+            focus=0,
+            mask="mask 1",
+            mask_rotation=0,
+            parked=parked,
+            autoparked=False,
+            status=cbp_component.Status(
+                panic=False,
+                azimuth=False,
+                elevation=False,
+                mask=False,
+                mask_rotation=False,
+                focus=False,
+            ),
+            in_position=in_position,
+            valid=True,
+        )
+
     async def test_send_command_lock_recovers_after_missing_reply(self) -> None:
         client = self.NoReplyClient()
         component = cbp_component.CBPComponent(
@@ -146,6 +180,195 @@ class CBPComponentTestCase(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(component.client_lock.locked())
         self.assertEqual(component.client.writes, ["connection_error"])
+
+    async def test_accept_target_update_marks_moved_axes_out_of_position(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.in_position = cbp_component.InPosition(
+            azimuth=True,
+            elevation=True,
+            focus=True,
+            mask=True,
+            mask_rotation=True,
+        )
+
+        target_update = component.accept_target_update(azimuth=1.5, elevation=-2.5)
+
+        self.assertEqual(target_update.target, component.target)
+        self.assertEqual(target_update.moved_axes, frozenset({"azimuth", "elevation"}))
+        self.assertFalse(target_update.in_position.azimuth)
+        self.assertFalse(target_update.in_position.elevation)
+        self.assertTrue(target_update.in_position.focus)
+        self.assertTrue(target_update.in_position.mask)
+        self.assertTrue(target_update.in_position.mask_rotation)
+
+    async def test_accept_focus_target_update_marks_only_focus_out_of_position(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.in_position = cbp_component.InPosition(
+            azimuth=True,
+            elevation=True,
+            focus=True,
+            mask=True,
+            mask_rotation=True,
+        )
+
+        target_update = component.accept_target_update(focus=2500)
+
+        self.assertEqual(target_update.moved_axes, frozenset({"focus"}))
+        self.assertFalse(target_update.in_position.focus)
+        self.assertTrue(target_update.in_position.azimuth)
+        self.assertTrue(target_update.in_position.elevation)
+        self.assertTrue(target_update.in_position.mask)
+        self.assertTrue(target_update.in_position.mask_rotation)
+
+    async def test_accept_mask_target_update_normalizes_mask_id(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.masks["1"].name = "mask 1"
+        component.masks["1"].rotation = 30.0
+        component.in_position = cbp_component.InPosition(
+            azimuth=True,
+            elevation=True,
+            focus=True,
+            mask=True,
+            mask_rotation=True,
+        )
+
+        target_update = component.accept_mask_target_update("1")
+
+        self.assertEqual(target_update.target.mask, "mask 1")
+        self.assertEqual(target_update.target.mask_rotation, 30.0)
+        self.assertEqual(target_update.moved_axes, frozenset({"mask", "mask_rotation"}))
+        self.assertFalse(target_update.in_position.mask)
+        self.assertFalse(target_update.in_position.mask_rotation)
+        self.assertTrue(target_update.in_position.azimuth)
+        self.assertTrue(target_update.in_position.elevation)
+        self.assertTrue(target_update.in_position.focus)
+
+    async def test_invalid_target_update_does_not_mutate_state(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        initial_target = component.target
+        initial_in_position = component.in_position
+
+        with self.assertRaises(ValueError):
+            component.accept_target_update(azimuth=46)
+
+        self.assertEqual(component.target, initial_target)
+        self.assertEqual(component.in_position, initial_in_position)
+
+    async def test_motion_commands_do_not_mutate_target(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.send_command = mock.AsyncMock()
+        initial_target = component.target
+
+        await component.move_azimuth(1)
+        await component.move_elevation(2)
+        await component.change_focus(3)
+        await component.set_mask_rotation(4)
+
+        self.assertEqual(component.target, initial_target)
+
+    async def test_notify_monitor_success_updates_state_and_wakes_waiters(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.monitor_failure = "previous failure"
+        telemetry = self.make_telemetry()
+        await component.notify_monitor_success(telemetry)
+        self.assertEqual(component.telemetry, telemetry)
+        self.assertEqual(component.in_position, telemetry.in_position)
+        self.assertIsNone(component.monitor_failure)
+
+        component.in_position = cbp_component.InPosition(
+            azimuth=False,
+            elevation=True,
+            focus=True,
+            mask=True,
+            mask_rotation=True,
+        )
+        monitor_task: asyncio.Future[None] = asyncio.Future()
+        wait_task = asyncio.create_task(component.wait_for_motion_complete(monitor_task))
+        await asyncio.sleep(0)
+
+        await component.notify_monitor_success(telemetry)
+        await asyncio.wait_for(wait_task, timeout=STD_TIMEOUT)
+
+        monitor_task.cancel()
+
+    async def test_notify_monitor_failure_wakes_waiters(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.in_position = cbp_component.InPosition(
+            azimuth=False,
+            elevation=True,
+            focus=True,
+            mask=True,
+            mask_rotation=True,
+        )
+        monitor_task: asyncio.Future[None] = asyncio.Future()
+        wait_task = asyncio.create_task(component.wait_for_motion_complete(monitor_task))
+        await asyncio.sleep(0)
+
+        await component.notify_monitor_failure("test monitor failure")
+
+        with self.assertRaises(cbp_component.MonitorStoppedError) as cm:
+            await asyncio.wait_for(wait_task, timeout=STD_TIMEOUT)
+        self.assertIn("test monitor failure", str(cm.exception))
+        monitor_task.cancel()
+
+    async def test_wait_for_motion_complete_raises_if_monitor_task_stops(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        component.in_position = cbp_component.InPosition(
+            azimuth=False,
+            elevation=True,
+            focus=True,
+            mask=True,
+            mask_rotation=True,
+        )
+        monitor_task: asyncio.Future[None] = asyncio.Future()
+        monitor_task.set_result(None)
+
+        with self.assertRaises(cbp_component.MonitorStoppedError) as cm:
+            await component.wait_for_motion_complete(monitor_task)
+        self.assertEqual(str(cm.exception), "Monitor task stopped while waiting for motion.")
+
+    async def test_wait_for_park_state_returns_when_state_matches(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        monitor_task: asyncio.Future[None] = asyncio.Future()
+        wait_task = asyncio.create_task(component.wait_for_park_state(True, monitor_task))
+        await asyncio.sleep(0)
+
+        telemetry = self.make_telemetry(parked=True)
+        await component.notify_monitor_success(telemetry)
+        await asyncio.wait_for(wait_task, timeout=STD_TIMEOUT)
+
+        self.assertTrue(component.telemetry.parked)
+        monitor_task.cancel()
+
+    async def test_wait_for_park_state_raises_on_monitor_failure(self) -> None:
+        component = cbp_component.CBPComponent(
+            log=logging.getLogger(type(self).__name__),
+        )
+        monitor_task: asyncio.Future[None] = asyncio.Future()
+        await component.notify_monitor_failure("park monitor failure")
+
+        with self.assertRaises(cbp_component.MonitorStoppedError) as cm:
+            await component.wait_for_park_state(True, monitor_task)
+        self.assertIn("park monitor failure", str(cm.exception))
+        monitor_task.cancel()
 
 
 class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
@@ -461,7 +684,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
 
             async def fail_monitor_after_command_starts() -> None:
                 await asyncio.sleep(0)
-                await self.csc.notify_monitor_failure("test monitor failure")
+                await self.csc.component.notify_monitor_failure("test monitor failure")
 
             fail_task = asyncio.create_task(fail_monitor_after_command_starts())
 
@@ -480,7 +703,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
             self.csc.component.move_azimuth = mock.AsyncMock()
 
             self.csc.in_position_timeout = 0.1
-            self.csc.set_in_position(
+            self.csc.component.in_position = cbp_component.InPosition(
                 azimuth=False, elevation=False, focus=True, mask=True, mask_rotation=True
             )
 
