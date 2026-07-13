@@ -25,13 +25,13 @@
 from documenteer.conf.guide import *  # noqa
 
 project = "ts_cbp"
-html_theme_options["logotext"] = project  # noqa
+html_theme_options["logotext"] = project  # type: ignore[name-defined]  # noqa
 html_title = project
 html_short_title = project
 
-intersphinx_mapping["ts_xml"] = ("https://ts-xml.lsst.io", None)  # noqa
-intersphinx_mapping["ts_salobj"] = ("https://ts-salobj.lsst.io", None)  # noqa
-intersphinx_mapping["ts_simactuators"] = (  # noqa
+intersphinx_mapping["ts_xml"] = ("https://ts-xml.lsst.io", None)  # type: ignore[name-defined]  # noqa
+intersphinx_mapping["ts_salobj"] = ("https://ts-salobj.lsst.io", None)  # type: ignore[name-defined]  # noqa
+intersphinx_mapping["ts_simactuators"] = (  # type: ignore[name-defined]  # noqa
     "https://ts-simactuators.lsst.io",
     None,
 )  # noqa

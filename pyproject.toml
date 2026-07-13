@@ -10,9 +10,6 @@ readme = "README.rst"
 urls = { documentation = "https://ts-cbp.lsst.io", repository = "https://github.com/lsst-ts/ts_cbp"}
 dynamic = ["version"]
 
-[tool.setuptools.dynamic]
-version = { attr = "setuptools_scm.get_version" }
-
 [tool.setuptools.packages.find]
 where = [ "python" ]
 
