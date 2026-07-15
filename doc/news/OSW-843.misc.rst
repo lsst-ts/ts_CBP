@@ -1,2 +1,0 @@
-Added Pixi development environments and Rattler/Conda packaging support for
-building, testing, documenting, and installing `ts-cbp`.

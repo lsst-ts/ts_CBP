@@ -4,6 +4,33 @@ Version History
 
 .. towncrier release notes start
 
+v1.6.0 (2026-07-15)
+===================
+
+New Features
+------------
+
+- Published CBP telemetry, target, and in-position state from consistent
+  component snapshots. Motion and park waits tracked monitor state and reported
+  monitor failures through SAL errors. (`OSW-843 <https://rubinobs.atlassian.net//browse/OSW-843>`_)
+
+
+Bug Fixes
+---------
+
+- Improved CBP command and monitor recovery by handling stalled controller
+  replies, retrying and reconnecting when necessary, waking motion waits when
+  the monitor failed, and accepting decimal and negative values in the
+  simulator command parser. (`OSW-843 <https://rubinobs.atlassian.net//browse/OSW-843>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Added Pixi development environments and Rattler/Conda packaging support for
+  building, testing, documenting, and installing `ts-cbp`. (`OSW-843 <https://rubinobs.atlassian.net//browse/OSW-843>`_)
+
+
 v1.5.3 (2026-01-22)
 ===================
 

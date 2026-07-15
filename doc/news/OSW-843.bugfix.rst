@@ -1,4 +1,0 @@
-Improved CBP command and monitor recovery by handling stalled controller
-replies, retrying and reconnecting when necessary, waking motion waits when
-the monitor failed, and accepting decimal and negative values in the
-simulator command parser.

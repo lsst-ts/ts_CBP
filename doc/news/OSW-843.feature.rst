@@ -1,3 +1,0 @@
-Published CBP telemetry, target, and in-position state from consistent
-component snapshots. Motion and park waits tracked monitor state and reported
-monitor failures through SAL errors.
