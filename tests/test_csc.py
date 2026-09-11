@@ -566,7 +566,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.remote.cmd_setFocus.set_start(focus=2500, timeout=STD_TIMEOUT)
+            await self.remote.cmd_setFocus.set_start(focus=5000, timeout=STD_TIMEOUT)
             await self.assert_in_position_state(
                 azimuth=True,
                 elevation=True,
@@ -581,7 +581,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.assert_next_sample(topic=self.remote.tel_focus, flush=True, focus=2500)
+            await self.assert_next_sample(topic=self.remote.tel_focus, flush=True, focus=5000)
 
             with self.subTest("Focus out of bounds"):
                 with self.assertRaises(salobj.AckError):

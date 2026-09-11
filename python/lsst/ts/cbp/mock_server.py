@@ -124,7 +124,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
             ),
             (re.compile(r"foc=\?"), self.do_focus),
             (
-                re.compile(r"new_foc=(?P<parameter>[0-1]?[0-3]?\d?\d?\d)"),
+                re.compile(r"new_foc=(?P<parameter>0|[1-9]\d{0,3}|1[0-2]\d{3}|13000)"),
                 self.do_new_focus,
             ),
             (re.compile(r"msk=\?"), self.do_mask),
