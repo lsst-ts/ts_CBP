@@ -1,0 +1,1 @@
+Fixed set_focus regex to allow all values between 0 and 50000.

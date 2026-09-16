@@ -1,7 +1,6 @@
+# This file is part of ts_CBP.
 #
-# This file is part of ts_cbp.
-#
-# Developed for the Rubin Observatory Telescope and Site System.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -14,12 +13,12 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 __all__ = ["Encoders", "MockServer"]
 
 import asyncio
@@ -124,7 +123,7 @@ class MockServer(tcpip.OneClientReadLoopServer):
             ),
             (re.compile(r"foc=\?"), self.do_focus),
             (
-                re.compile(r"new_foc=(?P<parameter>[0-1]?[0-3]?\d?\d?\d)"),
+                re.compile(r"new_foc=(?P<parameter>0|[1-9]\d{0,3}|1[0-2]\d{3}|13000)"),
                 self.do_new_focus,
             ),
             (re.compile(r"msk=\?"), self.do_mask),

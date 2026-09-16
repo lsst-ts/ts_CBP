@@ -1,7 +1,6 @@
+# This file is part of ts_CBP.
 #
-# This file is part of ts_cbp.
-#
-# Developed for the Rubin Observatory Telescope and Site System.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -14,12 +13,12 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 import asyncio
 import logging
 import pathlib
@@ -566,7 +565,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.remote.cmd_setFocus.set_start(focus=2500, timeout=STD_TIMEOUT)
+            await self.remote.cmd_setFocus.set_start(focus=5000, timeout=STD_TIMEOUT)
             await self.assert_in_position_state(
                 azimuth=True,
                 elevation=True,
@@ -581,7 +580,7 @@ class CBPCSCTestCase(salobj.BaseCscTestCase, unittest.IsolatedAsyncioTestCase):
                 mask_rotation=True,
                 focus=True,
             )
-            await self.assert_next_sample(topic=self.remote.tel_focus, flush=True, focus=2500)
+            await self.assert_next_sample(topic=self.remote.tel_focus, flush=True, focus=5000)
 
             with self.subTest("Focus out of bounds"):
                 with self.assertRaises(salobj.AckError):

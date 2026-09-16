@@ -6,3 +6,4 @@ isort: false
 mypy: true
 towncrier: true
 ruff: true
+insert-license: true

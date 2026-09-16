@@ -135,3 +135,4 @@ version.py
 .clang-format
 .ruff.toml
 towncrier.toml
+.LICENSE.txt
